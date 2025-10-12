@@ -2206,7 +2206,6 @@ case 'get_products_oldest_batch_for_transfer':
                 LEFT JOIN tbl_category c ON p.category_id = c.category_id
                 LEFT JOIN tbl_supplier s ON p.supplier_id = s.supplier_id 
                 LEFT JOIN tbl_brand br ON p.brand_id = br.brand_id 
-                LEFT JOIN tbl_category c ON p.category_id = c.category_id
                 LEFT JOIN tbl_location l ON p.location_id = l.location_id
                 LEFT JOIN tbl_batch b ON p.batch_id = b.batch_id
                 $whereClause
@@ -5430,11 +5429,14 @@ case 'get_products_oldest_batch_for_transfer':
             $stmt = $conn->prepare("
                 SELECT 
                     p.product_name as product,
-                    COALESCE((SELECT SUM(fs.available_quantity) FROM tbl_fifo_stock fs WHERE fs.product_id = p.product_id), 0) as quantity
+                    COALESCE((SELECT SUM(fs.available_quantity) FROM tbl_fifo_stock fs WHERE fs.product_id = p.product_id), 0) as quantity,
+                    c.category_name as category,
+                    l.location_name as location
                 FROM tbl_product p
                 LEFT JOIN tbl_category c ON p.category_id = c.category_id
                 LEFT JOIN tbl_location l ON p.location_id = l.location_id
                 $whereClause
+                HAVING quantity > 0
                 ORDER BY quantity DESC
                 LIMIT 10
             ");
@@ -5443,7 +5445,8 @@ case 'get_products_oldest_batch_for_transfer':
             
             echo json_encode([
                 "success" => true,
-                "data" => $topProducts
+                "data" => $topProducts,
+                "count" => count($topProducts)
             ]);
         } catch (Exception $e) {
             echo json_encode([
@@ -5475,13 +5478,15 @@ case 'get_products_oldest_batch_for_transfer':
             
             $stmt = $conn->prepare("
                 SELECT 
-                    c.category_name,
+                    c.category_name as category,
                     COALESCE((SELECT SUM(fs.available_quantity) FROM tbl_fifo_stock fs WHERE fs.product_id = p.product_id), 0) as quantity
                 FROM tbl_product p
                 LEFT JOIN tbl_category c ON p.category_id = c.category_id
                 LEFT JOIN tbl_location l ON p.location_id = l.location_id
                 $whereClause
+                AND c.category_name IS NOT NULL
                 GROUP BY c.category_name
+                HAVING quantity > 0
                 ORDER BY quantity DESC
                 LIMIT 8
             ");
@@ -5490,7 +5495,8 @@ case 'get_products_oldest_batch_for_transfer':
             
             echo json_encode([
                 "success" => true,
-                "data" => $categoryDistribution
+                "data" => $categoryDistribution,
+                "count" => count($categoryDistribution)
             ]);
         } catch (Exception $e) {
             echo json_encode([
@@ -5605,11 +5611,16 @@ case 'get_products_oldest_batch_for_transfer':
                         $weekStmt->execute([$product['product'], $startDays, $endDays]);
                         $weekData = $weekStmt->fetch(PDO::FETCH_ASSOC);
                         
-                        $trendData[] = [
-                            'product' => $product['product'],
-                            'month' => $week,
-                            'quantity' => max(0, $weekData['weekly_movement'] ?: rand(5, 25))
-                        ];
+                        $weeklyMovement = $weekData['weekly_movement'] ?: 0;
+                        
+                        // Only add to trend data if there's actual movement (no zero values)
+                        if ($weeklyMovement > 0) {
+                            $trendData[] = [
+                                'product' => $product['product'],
+                                'month' => $week,
+                                'quantity' => $weeklyMovement
+                            ];
+                        }
                     }
                 } else {
                     foreach ($months as $month) {
@@ -5625,11 +5636,16 @@ case 'get_products_oldest_batch_for_transfer':
                         $monthStmt->execute([$product['product'], $monthDate]);
                         $monthData = $monthStmt->fetch(PDO::FETCH_ASSOC);
                         
-                        $trendData[] = [
-                            'product' => $product['product'],
-                            'month' => $month,
-                            'quantity' => max(0, $monthData['monthly_movement'] ?: rand(10, 50))
-                        ];
+                        $monthlyMovement = $monthData['monthly_movement'] ?: 0;
+                        
+                        // Only add to trend data if there's actual movement (no zero values)
+                        if ($monthlyMovement > 0) {
+                            $trendData[] = [
+                                'product' => $product['product'],
+                                'month' => $month,
+                                'quantity' => $monthlyMovement
+                            ];
+                        }
                     }
                 }
             }
@@ -5690,13 +5706,20 @@ case 'get_products_oldest_batch_for_transfer':
             $stmt = $conn->prepare("
                 SELECT 
                     p.product_name as product,
-                    COALESCE((SELECT SUM(fs.available_quantity) FROM tbl_fifo_stock fs WHERE fs.product_id = p.product_id), 0) as quantity
+                    COALESCE((SELECT SUM(fs.available_quantity) FROM tbl_fifo_stock fs WHERE fs.product_id = p.product_id), 0) as quantity,
+                    c.category_name as category,
+                    l.location_name as location,
+                    CASE 
+                        WHEN COALESCE((SELECT SUM(fs.available_quantity) FROM tbl_fifo_stock fs WHERE fs.product_id = p.product_id), 0) = 0 THEN 'Out of Stock'
+                        WHEN COALESCE((SELECT SUM(fs.available_quantity) FROM tbl_fifo_stock fs WHERE fs.product_id = p.product_id), 0) <= 5 THEN 'Critical'
+                        ELSE 'Low Stock'
+                    END as alert_level
                 FROM tbl_product p
                 LEFT JOIN tbl_category c ON p.category_id = c.category_id
                 LEFT JOIN tbl_location l ON p.location_id = l.location_id
                 $whereClause
                 AND COALESCE((SELECT SUM(fs.available_quantity) FROM tbl_fifo_stock fs WHERE fs.product_id = p.product_id), 0) <= 10
-                ORDER BY quantity ASC
+                ORDER BY quantity ASC, p.product_name ASC
                 LIMIT 10
             ");
             $stmt->execute($params);
@@ -5704,7 +5727,8 @@ case 'get_products_oldest_batch_for_transfer':
             
             echo json_encode([
                 "success" => true,
-                "data" => $criticalAlerts
+                "data" => $criticalAlerts,
+                "count" => count($criticalAlerts)
             ]);
         } catch (Exception $e) {
             echo json_encode([
@@ -8581,9 +8605,10 @@ case 'get_products_oldest_batch_for_transfer':
                 $productStmt = $conn->prepare("
                     INSERT INTO tbl_product (
                         product_name, category_id, barcode, description, 
-                        brand_id, supplier_id, location_id, batch_id, status, date_added
+                        brand_id, supplier_id, location_id, batch_id, status, date_added,
+                        product_type, bulk, prescription
                     ) VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                     )
                 ");
                 
@@ -8627,6 +8652,11 @@ case 'get_products_oldest_batch_for_transfer':
                             $brand_id = 1;
                         }
                         
+                        // Get product_type and bulk configuration
+                        $product_type = $product['product_type'] ?? 'Non-Medicine';
+                        $bulk = isset($product['bulk']) ? (int)$product['bulk'] : 0;
+                        $prescription = isset($product['prescription']) ? (int)$product['prescription'] : 0;
+                        
                         // NO quantity/srp in tbl_product - they go ONLY to tbl_fifo_stock!
                         $productParams = [
                             $product['product_name'],
@@ -8638,11 +8668,15 @@ case 'get_products_oldest_batch_for_transfer':
                             $location_id,
                             $batch_id,
                             'active',
-                            date('Y-m-d')
+                            date('Y-m-d'),
+                            $product_type,
+                            $bulk,
+                            $prescription
                         ];
                         
                         error_log("Product parameters count: " . count($productParams));
                         error_log("Product parameters: " . json_encode($productParams));
+                        error_log("Product type being saved: " . $product_type);
                         
                         $productStmt->execute($productParams);
                         
@@ -8671,6 +8705,94 @@ case 'get_products_oldest_batch_for_transfer':
                         error_log("FIFO parameters: " . json_encode($fifoParams));
                         
                         $fifoStmt->execute($fifoParams);
+                        
+                        // 4. Insert unit configuration into tbl_product_units for Medicine products with bulk mode
+                        if ($product_type === 'Medicine' && isset($product['configMode']) && $product['configMode'] === 'bulk') {
+                            // Check if we have the necessary bulk configuration data
+                            if (isset($product['boxes']) && isset($product['strips_per_box']) && isset($product['tablets_per_strip'])) {
+                                $boxes = (int)$product['boxes'];
+                                $strips_per_box = (int)$product['strips_per_box'];
+                                $tablets_per_strip = (int)$product['tablets_per_strip'];
+                                
+                                // Calculate unit prices based on SRP (which is the price per tablet)
+                                $srp = (float)($product['srp'] ?? 0);
+                                $strip_price = $srp * $tablets_per_strip;
+                                $box_price = $strip_price * $strips_per_box;
+                                
+                                error_log("Inserting medicine units - Boxes: $boxes, Strips/Box: $strips_per_box, Tablets/Strip: $tablets_per_strip");
+                                error_log("Unit prices - Tablet: $srp, Strip: $strip_price, Box: $box_price");
+                                
+                                // Insert base unit (tablet)
+                                $unitStmt = $conn->prepare("
+                                    INSERT INTO tbl_product_units (
+                                        product_id, unit_name, unit_quantity, unit_price, is_base_unit, status
+                                    ) VALUES (?, ?, ?, ?, ?, ?)
+                                ");
+                                
+                                // Tablet (base unit)
+                                $unitStmt->execute([$product_id, 'tablet', 1, $srp, 1, 'active']);
+                                error_log("Inserted tablet unit for product_id: $product_id");
+                                
+                                // Strip
+                                $unitStmt->execute([$product_id, 'strip', $tablets_per_strip, $strip_price, 0, 'active']);
+                                error_log("Inserted strip unit for product_id: $product_id");
+                                
+                                // Box
+                                $total_tablets_per_box = $strips_per_box * $tablets_per_strip;
+                                $unitStmt->execute([$product_id, 'box', $total_tablets_per_box, $box_price, 0, 'active']);
+                                error_log("Inserted box unit for product_id: $product_id");
+                                
+                                // Update product to enable multi-unit and set default unit
+                                $updateProductStmt = $conn->prepare("
+                                    UPDATE tbl_product 
+                                    SET allow_multi_unit = 1, default_unit = 'tablet'
+                                    WHERE product_id = ?
+                                ");
+                                $updateProductStmt->execute([$product_id]);
+                                error_log("Updated product $product_id to enable multi-unit");
+                            } else {
+                                error_log("Warning: Medicine product '{$product['product_name']}' has bulk mode but missing unit configuration data");
+                            }
+                        }
+                        // Handle Non-Medicine products with bulk configuration
+                        else if ($product_type === 'Non-Medicine' && isset($product['configMode']) && $product['configMode'] === 'bulk') {
+                            if (isset($product['boxes']) && isset($product['pieces_per_pack'])) {
+                                $boxes = (int)$product['boxes'];
+                                $pieces_per_pack = (int)$product['pieces_per_pack'];
+                                
+                                // Calculate unit prices
+                                $srp = (float)($product['srp'] ?? 0);
+                                $box_price = $srp * $pieces_per_pack;
+                                
+                                error_log("Inserting non-medicine units - Boxes: $boxes, Pieces/Box: $pieces_per_pack");
+                                error_log("Unit prices - Piece: $srp, Box: $box_price");
+                                
+                                $unitStmt = $conn->prepare("
+                                    INSERT INTO tbl_product_units (
+                                        product_id, unit_name, unit_quantity, unit_price, is_base_unit, status
+                                    ) VALUES (?, ?, ?, ?, ?, ?)
+                                ");
+                                
+                                // Piece (base unit)
+                                $unitStmt->execute([$product_id, 'piece', 1, $srp, 1, 'active']);
+                                error_log("Inserted piece unit for product_id: $product_id");
+                                
+                                // Box
+                                $unitStmt->execute([$product_id, 'box', $pieces_per_pack, $box_price, 0, 'active']);
+                                error_log("Inserted box unit for product_id: $product_id");
+                                
+                                // Update product to enable multi-unit
+                                $updateProductStmt = $conn->prepare("
+                                    UPDATE tbl_product 
+                                    SET allow_multi_unit = 1, default_unit = 'piece'
+                                    WHERE product_id = ?
+                                ");
+                                $updateProductStmt->execute([$product_id]);
+                                error_log("Updated product $product_id to enable multi-unit");
+                            } else {
+                                error_log("Warning: Non-Medicine product '{$product['product_name']}' has bulk mode but missing unit configuration data");
+                            }
+                        }
                         
                         $successCount++;
                     } catch (Exception $e) {
@@ -9559,6 +9681,101 @@ case 'get_products_oldest_batch_for_transfer':
     case 'change_current_user_password':
         require_once __DIR__ . '/modules/admin.php';
         handle_change_current_user_password($conn, $data);
+        break;
+
+    case 'get_product_units':
+        try {
+            $product_id = $data['product_id'] ?? 0;
+            
+            if (!$product_id) {
+                echo json_encode([
+                    "success" => false,
+                    "message" => "Product ID is required"
+                ]);
+                break;
+            }
+            
+            // Get product details first to check product_type
+            $productStmt = $conn->prepare("
+                SELECT 
+                    p.product_id,
+                    p.product_name,
+                    p.product_type,
+                    p.allow_multi_unit,
+                    p.default_unit
+                FROM tbl_product p
+                WHERE p.product_id = ?
+            ");
+            $productStmt->execute([$product_id]);
+            $product = $productStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$product) {
+                echo json_encode([
+                    "success" => false,
+                    "message" => "Product not found"
+                ]);
+                break;
+            }
+            
+            // Get units from tbl_product_units
+            $unitsStmt = $conn->prepare("
+                SELECT 
+                    unit_id,
+                    product_id,
+                    unit_name,
+                    unit_quantity,
+                    unit_price,
+                    is_base_unit,
+                    barcode,
+                    status
+                FROM tbl_product_units
+                WHERE product_id = ? AND status = 'active'
+                ORDER BY is_base_unit DESC, unit_quantity ASC
+            ");
+            $unitsStmt->execute([$product_id]);
+            $units = $unitsStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // If no units found, return default units based on product type
+            if (empty($units)) {
+                if ($product['product_type'] === 'Medicine') {
+                    $units = [
+                        [
+                            'unit_id' => null,
+                            'unit_name' => 'tablet',
+                            'unit_quantity' => 1,
+                            'unit_price' => 0,
+                            'is_base_unit' => 1,
+                            'status' => 'active'
+                        ]
+                    ];
+                } else {
+                    $units = [
+                        [
+                            'unit_id' => null,
+                            'unit_name' => 'piece',
+                            'unit_quantity' => 1,
+                            'unit_price' => 0,
+                            'is_base_unit' => 1,
+                            'status' => 'active'
+                        ]
+                    ];
+                }
+            }
+            
+            echo json_encode([
+                "success" => true,
+                "data" => [
+                    "product" => $product,
+                    "units" => $units
+                ]
+            ]);
+            
+        } catch (Exception $e) {
+            echo json_encode([
+                "success" => false,
+                "message" => "Database error: " . $e->getMessage()
+            ]);
+        }
         break;
 
 } // End of switch statement

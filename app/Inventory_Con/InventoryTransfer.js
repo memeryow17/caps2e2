@@ -41,6 +41,8 @@ function InventoryTransfer() {
   const [availableProducts, setAvailableProducts] = useState([])
   const [checkedProducts, setCheckedProducts] = useState([])
   const [showProductSelection, setShowProductSelection] = useState(false)
+  const [productUnits, setProductUnits] = useState({}) // Store units for each product
+  const [selectedUnits, setSelectedUnits] = useState({}) // Track selected unit per product
   const [productSearchTerm, setProductSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All Product Category")
   const [selectedSupplier, setSelectedSupplier] = useState("All Suppliers")
@@ -116,6 +118,45 @@ function InventoryTransfer() {
         error: "REQUEST_ERROR",
       }
     }
+  }
+
+  // Load product units from tbl_product_units
+  const loadProductUnits = async (productId) => {
+    try {
+      const response = await api.callGenericAPI('backend.php', 'get_product_units', { product_id: productId });
+      
+      if (response.success && response.data) {
+        console.log(`✅ Loaded units for product ${productId}:`, response.data);
+        return response.data;
+      } else {
+        console.warn(`⚠️ No units found for product ${productId}`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`❌ Error loading units for product ${productId}:`, error);
+      return null;
+    }
+  }
+
+  // Load units for multiple products
+  const loadUnitsForProducts = async (products) => {
+    const unitsData = {};
+    const defaultUnits = {};
+    
+    for (const product of products) {
+      const data = await loadProductUnits(product.product_id);
+      if (data) {
+        unitsData[product.product_id] = data.units;
+        // Set default unit to the base unit or first unit
+        const baseUnit = data.units.find(u => u.is_base_unit === 1) || data.units[0];
+        if (baseUnit) {
+          defaultUnits[product.product_id] = baseUnit.unit_name;
+        }
+      }
+    }
+    
+    setProductUnits(unitsData);
+    setSelectedUnits(defaultUnits);
   }
 
   // Expiration Check Functions
@@ -1275,10 +1316,23 @@ function InventoryTransfer() {
         employee_id: transferEmployee.emp_id,
         status: "approved", // Use 'approved' to match database enum
         delivery_date: transferInfo.deliveryDate || null,
-        products: productsToTransfer.map((product) => ({
-          product_id: product.product_id,
-          quantity: product.transfer_quantity,
-        })),
+        products: productsToTransfer.map((product) => {
+          // Convert quantity to base units
+          const baseUnitQuantity = getBaseUnitQuantity(product.product_id, product.transfer_quantity);
+          const selectedUnit = selectedUnits[product.product_id];
+          
+          console.log(`📦 Product: ${product.product_name}`);
+          console.log(`   Selected Unit: ${selectedUnit || 'base'}`);
+          console.log(`   Input Quantity: ${product.transfer_quantity} ${selectedUnit || 'units'}`);
+          console.log(`   Base Unit Quantity: ${baseUnitQuantity} base units`);
+          
+          return {
+            product_id: product.product_id,
+            quantity: baseUnitQuantity, // Send in base units
+            unit_name: selectedUnit || (product.product_type === 'Medicine' ? 'tablet' : 'piece'),
+            display_quantity: product.transfer_quantity, // Original display quantity
+          };
+        }),
       }
 
       console.log("📦 Transfer Data Validation:")
@@ -1485,7 +1539,7 @@ function InventoryTransfer() {
     }
   }
 
-  const handleSelectProducts = () => {
+  const handleSelectProducts = async () => {
     const selected = availableProducts
       .filter((p) => checkedProducts.includes(p.product_id))
       .map((p) => ({
@@ -1493,6 +1547,11 @@ function InventoryTransfer() {
         transfer_quantity: 0,
       }))
     setSelectedProducts(selected)
+    
+    // Load units for the selected products
+    console.log("🔄 Loading units for selected products...");
+    await loadUnitsForProducts(selected);
+    
     setShowProductSelection(false)
   }
 
@@ -1523,6 +1582,46 @@ function InventoryTransfer() {
         return product;
       }),
     )
+  }
+
+  // Handle unit selection change
+  const handleUnitChange = (productId, unitName) => {
+    console.log(`🔄 Changing unit for product ${productId} to ${unitName}`);
+    
+    setSelectedUnits(prev => ({
+      ...prev,
+      [productId]: unitName
+    }));
+    
+    // Reset transfer quantity when unit changes
+    setSelectedProducts((prev) =>
+      prev.map((product) => {
+        if (product.product_id === productId) {
+          return { ...product, transfer_quantity: 0 };
+        }
+        return product;
+      }),
+    );
+    
+    toast.info(`✅ Unit changed to ${unitName}. Please enter quantity again.`);
+  }
+
+  // Get the actual quantity in base units for transfer
+  const getBaseUnitQuantity = (productId, quantity) => {
+    const selectedUnit = selectedUnits[productId];
+    const units = productUnits[productId];
+    
+    if (!selectedUnit || !units) {
+      return quantity; // Return as-is if no unit data
+    }
+    
+    const unit = units.find(u => u.unit_name === selectedUnit);
+    if (!unit) {
+      return quantity;
+    }
+    
+    // Convert to base units
+    return quantity * unit.unit_quantity;
   }
 
   const removeProduct = (productId) => {
@@ -2490,43 +2589,51 @@ function InventoryTransfer() {
                   </div>
                   
                   <div className="overflow-x-auto max-h-96">
-                    <table className={`w-full min-w-max border-collapse border text-sm ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: isDarkMode ? 'var(--inventory-text-primary)' : 'var(--inventory-text-primary)' }}>
+                    <table className={`border-collapse border text-sm ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ 
+                      color: isDarkMode ? 'var(--inventory-text-primary)' : 'var(--inventory-text-primary)',
+                      tableLayout: 'fixed',
+                      width: '100%',
+                      minWidth: '1800px'
+                    }}>
                       <thead className={`border-b sticky top-0 z-10 ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-gray-50 border-gray-200'}`}>
                         <tr>
-                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '140px' }}>
                             Status
                           </th>
-                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '150px' }}>
+                            Unit
+                          </th>
+                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '120px' }}>
                             Transfer Qty
                           </th>
-                          <th className={`border px-2 py-1 text-left text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-left text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '200px' }}>
                             Product
                           </th>
-                          <th className={`border px-2 py-1 text-left text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-left text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '120px' }}>
                             Category
                           </th>
-                          <th className={`border px-2 py-1 text-left text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-left text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '100px' }}>
                             Brand
                           </th>
-                          <th className={`border px-2 py-1 text-left text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-left text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '140px' }}>
                             Barcode
                           </th>
-                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '120px' }}>
                             Oldest Batch
                           </th>
-                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '100px' }}>
                             Oldest Qty
                           </th>
-                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '120px' }}>
                             Total Available
                           </th>
-                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '180px' }}>
                             FIFO Batch Info
                           </th>
-                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '80px' }}>
                             SRP
                           </th>
-                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)' }}>
+                          <th className={`border px-2 py-1 text-center text-xs font-medium ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`} style={{ color: 'var(--inventory-text-primary)', width: '150px' }}>
                             Action
                           </th>
                         </tr>
@@ -2542,11 +2649,43 @@ function InventoryTransfer() {
                             </td>
                             <td className={`border px-2 py-1 text-center ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
                               <div className="flex flex-col items-center">
-                                <div className={`text-xs mb-1 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Enter any quantity</div>
+                                {productUnits[product.product_id] && productUnits[product.product_id].length > 0 ? (
+                                  <>
+                                    <div className={`text-xs mb-1 font-medium ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                                      {product.product_type === 'Medicine' ? '💊 Medicine Units' : '📦 Product Units'}
+                                    </div>
+                                    <select
+                                      value={selectedUnits[product.product_id] || 'piece'}
+                                      onChange={(e) => handleUnitChange(product.product_id, e.target.value)}
+                                      className={`w-28 px-2 py-1 border rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-slate-700 border-slate-500 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                    >
+                                      {productUnits[product.product_id].map((unit) => (
+                                        <option key={unit.unit_name} value={unit.unit_name}>
+                                          {unit.unit_name.charAt(0).toUpperCase() + unit.unit_name.slice(1)} 
+                                          {unit.unit_quantity > 1 && ` (${unit.unit_quantity})`}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <div className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                                      {(() => {
+                                        const unit = productUnits[product.product_id].find(u => u.unit_name === selectedUnits[product.product_id]);
+                                        return unit ? `1 ${unit.unit_name} = ${unit.unit_quantity} base unit${unit.unit_quantity > 1 ? 's' : ''}` : '';
+                                      })()}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                                    {product.product_type === 'Medicine' ? 'Tablet' : 'Piece'}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className={`border px-2 py-1 text-center align-top ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
+                              <div className="flex flex-col items-center">
                                 <input
                                   type="number"
                                   min="0"
-                                  placeholder="Enter qty"
+                                  placeholder="0"
                                   value={product.transfer_quantity}
                                   onChange={(e) => updateTransferQuantity(product.product_id, e.target.value)}
                                   className={`w-20 px-2 py-1 border rounded text-center focus:outline-none focus:ring-2 ${
@@ -2559,134 +2698,86 @@ function InventoryTransfer() {
                                 />
                                 {product.transfer_quantity > 0 && (
                                   <div className="text-xs mt-1">
-                                    <span className={`${
+                                    <div className={`font-medium ${
                                       product.transfer_quantity > (product.total_quantity || product.available_for_transfer || 0)
                                         ? 'text-red-600' 
                                         : product.transfer_quantity > (product.oldest_batch_quantity || 0)
                                         ? 'text-orange-600'
                                         : 'text-blue-600'
                                     }`}>
-                                      {product.transfer_quantity} / {product.total_quantity || product.available_for_transfer || 0}
-                                    </span>
-                                    <div className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>
-                                      {product.transfer_quantity > (product.oldest_batch_quantity || 0) 
-                                        ? `⚡ Auto-switch: ${product.oldest_batch_quantity || 0} + ${product.transfer_quantity - (product.oldest_batch_quantity || 0)} from next batches`
-                                        : '🔄 Oldest batch only'
-                                      }
+                                      {product.transfer_quantity} {selectedUnits[product.product_id] || 'units'}
                                     </div>
-                                    {/* Enhanced batch switching indicator */}
-                                    {product.transfer_quantity > (product.oldest_batch_quantity || 0) && (
-                                      <div className={`text-xs font-medium mt-1 ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
-                                        🔄 Will use multiple batches automatically
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                                
-                                {/* Detailed Batch Breakdown */}
-                                {product.transfer_quantity > 0 && (
-                                  <div className="mt-2 p-2 border rounded text-xs" style={{
-                                    borderColor: isDarkMode ? '#374151' : '#d1d5db',
-                                    backgroundColor: isDarkMode ? '#1f2937' : '#f9fafb'
-                                  }}>
-                                    <div className="font-medium mb-2 flex items-center justify-between" style={{ color: isDarkMode ? '#e5e7eb' : '#374151' }}>
-                                      <span>📦 Batch Breakdown:</span>
-                                      <span className="text-xs px-2 py-1 rounded" style={{ 
-                                        backgroundColor: isDarkMode ? '#374151' : '#e5e7eb',
-                                        color: isDarkMode ? '#9ca3af' : '#6b7280'
-                                      }}>
-                                        FIFO Order
-                                      </span>
-                                    </div>
-                                    <div className="space-y-2">
-                                      {getDetailedBatchBreakdown(product).map((batch, index) => (
-                                        <div key={index} className="flex justify-between items-center p-1 rounded" style={{
-                                          backgroundColor: batch.isOldest ? 
-                                            (isDarkMode ? '#065f46' : '#d1fae5') : 
-                                            (isDarkMode ? '#92400e' : '#fef3c7')
-                                        }}>
-                                          <div className="flex items-center space-x-2">
-                                            <span className="font-mono text-xs" style={{ 
-                                              color: batch.isOldest ? 
-                                                (isDarkMode ? '#10b981' : '#059669') : 
-                                                (isDarkMode ? '#f59e0b' : '#d97706')
-                                            }}>
-                                              Batch {batch.batchNumber}:
-                                            </span>
-                                            <span className="text-xs" style={{ 
-                                              color: batch.isOldest ? 
-                                                (isDarkMode ? '#a7f3d0' : '#065f46') : 
-                                                (isDarkMode ? '#fde68a' : '#92400e')
-                                            }}>
-                                              {batch.batchReference}
-                                            </span>
-                                          </div>
-                                          <div className="flex items-center space-x-2">
-                                            <span className="font-semibold text-xs" style={{ 
-                                              color: batch.isOldest ? 
-                                                (isDarkMode ? '#10b981' : '#059669') : 
-                                                (isDarkMode ? '#f59e0b' : '#d97706')
-                                            }}>
-                                              {batch.quantity} units
-                                            </span>
-                                            {batch.remaining > 0 && (
-                                              <span className="text-xs" style={{ 
-                                                color: isDarkMode ? '#9ca3af' : '#6b7280'
-                                              }}>
-                                                ({batch.remaining} left)
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      ))}
-                                      
-                                      {/* Summary */}
-                                      <div className="mt-2 pt-2 border-t" style={{ borderColor: isDarkMode ? '#374151' : '#d1d5db' }}>
-                                        <div className="flex justify-between items-center text-xs">
-                                          <span style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}>
-                                            Total Transfer:
-                                          </span>
-                                          <span className="font-semibold" style={{ color: isDarkMode ? '#e5e7eb' : '#374151' }}>
-                                            {product.transfer_quantity} units
-                                          </span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-xs">
-                                          <span style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}>
-                                            Remaining Stock:
-                                          </span>
-                                          <span className="font-semibold" style={{ color: isDarkMode ? '#e5e7eb' : '#374151' }}>
-                                            {(product.total_quantity || 0) - product.transfer_quantity} units
-                                          </span>
-                                        </div>
-                                      </div>
+                                    <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                                      = {getBaseUnitQuantity(product.product_id, product.transfer_quantity)} base units
                                     </div>
                                   </div>
                                 )}
                               </div>
                             </td>
-                            <td className={`border px-2 py-1 ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
+                            <td className={`border px-2 py-1 align-top ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
                               <div className="flex items-center space-x-3">
                                 <img
                                   src={product.image || "/placeholder.svg?height=32&width=32"}
                                   alt={product.product_name}
-                                  className="h-8 w-8 rounded object-cover"
+                                  className="h-8 w-8 rounded object-cover flex-shrink-0"
                                 />
                                 <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{product.product_name}</span>
                               </div>
+                              {/* Batch Breakdown - Moved here to prevent column shifting */}
+                              {product.transfer_quantity > 0 && (
+                                <div className="mt-2 p-2 border rounded text-xs" style={{
+                                  borderColor: isDarkMode ? '#374151' : '#d1d5db',
+                                  backgroundColor: isDarkMode ? '#1f2937' : '#f9fafb'
+                                }}>
+                                  <div className="font-medium mb-1 flex items-center justify-between" style={{ color: isDarkMode ? '#e5e7eb' : '#374151' }}>
+                                    <span>📦 Batch Info:</span>
+                                    <span className="text-xs px-2 py-1 rounded" style={{ 
+                                      backgroundColor: isDarkMode ? '#374151' : '#e5e7eb',
+                                      color: isDarkMode ? '#9ca3af' : '#6b7280'
+                                    }}>
+                                      FIFO
+                                    </span>
+                                  </div>
+                                  <div className="space-y-1">
+                                    {getDetailedBatchBreakdown(product).map((batch, index) => (
+                                      <div key={index} className="flex justify-between items-center p-1 rounded text-xs" style={{
+                                        backgroundColor: batch.isOldest ? 
+                                          (isDarkMode ? '#065f46' : '#d1fae5') : 
+                                          (isDarkMode ? '#92400e' : '#fef3c7')
+                                      }}>
+                                        <span className="font-mono" style={{ 
+                                          color: batch.isOldest ? 
+                                            (isDarkMode ? '#10b981' : '#059669') : 
+                                            (isDarkMode ? '#f59e0b' : '#d97706')
+                                        }}>
+                                          Batch {batch.batchNumber}
+                                        </span>
+                                        <span className="font-semibold" style={{ 
+                                          color: batch.isOldest ? 
+                                            (isDarkMode ? '#10b981' : '#059669') : 
+                                            (isDarkMode ? '#f59e0b' : '#d97706')
+                                        }}>
+                                          {batch.quantity} units
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </td>
-                            <td className={`border px-2 py-1 text-sm ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>{product.category}</td>
-                            <td className={`border px-2 py-1 text-sm ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>{product.brand || "-"}</td>
-                            <td className={`border px-2 py-1 text-sm font-mono ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>{product.barcode}</td>
-                            <td className={`border px-2 py-1 text-sm text-center font-semibold ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>
+                            <td className={`border px-2 py-1 text-sm align-top ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>{product.category}</td>
+                            <td className={`border px-2 py-1 text-sm align-top ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>{product.brand || "-"}</td>
+                            <td className={`border px-2 py-1 text-sm font-mono align-top ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>{product.barcode}</td>
+                            <td className={`border px-2 py-1 text-sm text-center font-semibold align-top ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>
                               {product.oldest_batch_reference || product.batch_reference || 'N/A'}
                             </td>
-                            <td className={`border px-2 py-1 text-sm text-center font-semibold ${isDarkMode ? 'border-slate-600 text-orange-400' : 'border-gray-300 text-orange-600'}`}>
+                            <td className={`border px-2 py-1 text-sm text-center font-semibold align-top ${isDarkMode ? 'border-slate-600 text-orange-400' : 'border-gray-300 text-orange-600'}`}>
                               {product.oldest_batch_quantity || 0}
                             </td>
-                            <td className={`border px-2 py-1 text-sm text-center font-semibold ${isDarkMode ? 'border-slate-600 text-green-400' : 'border-gray-300 text-green-600'}`}>
+                            <td className={`border px-2 py-1 text-sm text-center font-semibold align-top ${isDarkMode ? 'border-slate-600 text-green-400' : 'border-gray-300 text-green-600'}`}>
                               {product.total_quantity || 0}
                             </td>
-                            <td className={`border px-2 py-1 text-sm text-center ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
+                            <td className={`border px-2 py-1 text-sm text-center align-top ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
                               <FifoStockInfo 
                                 product={product} 
                                 sourceLocationId={locations.find(loc => loc.location_name.toLowerCase().includes('warehouse'))?.location_id || 2}
@@ -2694,33 +2785,24 @@ function InventoryTransfer() {
                                 showFullDetails={false}
                               />
                             </td>
-                            <td className={`border px-2 py-1 text-sm text-center ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>
+                            <td className={`border px-2 py-1 text-sm text-center align-top ${isDarkMode ? 'border-slate-600 text-white' : 'border-gray-300 text-gray-900'}`}>
                               ₱{Number.parseFloat(product.srp || 0).toFixed(2)}
                             </td>
-                            <td className={`border px-2 py-1 text-center ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
+                            <td className={`border px-2 py-1 text-center align-top ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
                               <div className="flex items-center justify-center">
                                 {/* Enhanced Remove Button */}
-                                <div className={`relative group ${isDarkMode ? 'bg-slate-800' : 'bg-white'} rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 ${isDarkMode ? 'border-slate-600 hover:border-red-500' : 'border-gray-200 hover:border-red-300'}`}>
-                                  <button
-                                    onClick={() => removeProduct(product.product_id)}
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${
-                                      isDarkMode 
-                                        ? 'text-red-400 hover:text-red-300 hover:bg-red-900/20' 
-                                        : 'text-red-600 hover:text-red-700 hover:bg-red-50'
-                                    }`}
-                                    title="Remove product from transfer"
-                                  >
-                                    <div className={`p-1 rounded-md ${isDarkMode ? 'bg-red-900/30' : 'bg-red-100'}`}>
-                                      <X className="h-4 w-4" />
-                                    </div>
-                                    <div className="flex flex-col items-start">
-                                      <span className="text-sm font-medium">Remove</span>
-                                      <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                                        from transfer
-                                      </span>
-                                    </div>
-                                  </button>
-                                </div>
+                                <button
+                                  onClick={() => removeProduct(product.product_id)}
+                                  className={`flex items-center gap-1 px-2 py-1 rounded transition-all duration-200 ${
+                                    isDarkMode 
+                                      ? 'text-red-400 hover:text-red-300 hover:bg-red-900/20' 
+                                      : 'text-red-600 hover:text-red-700 hover:bg-red-50'
+                                  }`}
+                                  title="Remove product from transfer"
+                                >
+                                  <X className="h-4 w-4" />
+                                  <span className="text-xs font-medium">Remove</span>
+                                </button>
                               </div>
                             </td>
                           </tr>

@@ -9,6 +9,65 @@ import NotificationSystem from "./NotificationSystem";
 import { getApiEndpointForAction } from '../../lib/apiHandler';
 import apiHandler from '../../lib/apiHandler';
 
+// Safe toast function to handle toast notifications
+function safeToast(type, message, error = null) {
+  try {
+    const toastMessage = error ? `${message} ${error.message || error}` : message;
+    
+    switch(type) {
+      case "success":
+        toast.success(toastMessage, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+        break;
+      case "error":
+        toast.error(toastMessage, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+        break;
+      case "warning":
+        toast.warning(toastMessage, {
+          position: "top-right",
+          autoClose: 4000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+        break;
+      case "info":
+        toast.info(toastMessage, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+        break;
+      default:
+        toast(toastMessage);
+    }
+    
+    // Log to console for debugging
+    if (type === "error") {
+      console.error(toastMessage, error);
+    }
+  } catch (err) {
+    console.error("Error showing toast:", err);
+  }
+}
+
 async function handleApiCall(action, data = {}) {
   try {
     const endpoint = getApiEndpointForAction(action);
@@ -3353,28 +3412,6 @@ console.log("API response for product quantities:", response);
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold" style={{ color: theme.text.primary }}>Products</h3>
             <div className="flex items-center space-x-3">
-              <div className="text-sm" style={{ color: theme.text.secondary }}>
-                {inventoryData.length} products found
-              </div>
-              <div className="text-sm font-medium px-3 py-1 rounded-md" 
-                   style={{ 
-                     backgroundColor: theme.colors.primary + '15', 
-                     color: theme.colors.primary,
-                     border: `1px solid ${theme.colors.primary}30`
-                   }}>
-                Total Qty: {stats.totalQuantity || 0}
-              </div>
-              <div className="px-3 py-1 text-xs rounded-md font-bold" 
-                   style={{ 
-                     backgroundColor: theme.colors.success + '20', 
-                     color: theme.colors.success,
-                     border: `1px solid ${theme.colors.success}40`
-                   }}>
-                📦 TOTAL PRODUCTS: {inventoryData.length} | TOTAL QUANTITY: {inventoryData.reduce((sum, product) => {
-                  const qty = product.total_quantity || product.product_quantity || product.quantity || 0;
-                  return sum + parseInt(qty);
-                }, 0)} units
-              </div>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setFilterOptions(prev => ({ ...prev, stockStatus: 'all' }))}
@@ -3407,6 +3444,7 @@ console.log("API response for product quantities:", response);
                   Out of Stock
                 </button>
               </div>
+              <div className="flex space-x-2">
                 <button
                   onClick={syncFifoStock}
                   className="p-2 rounded-md transition-colors"
@@ -3432,6 +3470,7 @@ console.log("API response for product quantities:", response);
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+              </div>
             </div>
           </div>
         </div>

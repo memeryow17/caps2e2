@@ -303,20 +303,19 @@ switch ($action) {
             $updateStmt->execute([$adjustment_qty, $batch_id]);
             error_log("✅ FIFO stock updated");
             
-            // Update product total quantity
-            error_log("🔄 Updating product total quantity...");
+            // Update product stock_status based on total quantity from tbl_fifo_stock
+            error_log("🔄 Updating product stock status...");
             $updateProductStmt = $conn->prepare("
                 UPDATE tbl_product 
-                SET quantity = quantity + ?,
-                    stock_status = CASE 
-                        WHEN (quantity + ?) <= 0 THEN 'out of stock'
-                        WHEN (quantity + ?) <= 10 THEN 'low stock'
-                        ELSE 'in stock'
-                    END
+                SET stock_status = CASE 
+                    WHEN (SELECT COALESCE(SUM(available_quantity), 0) FROM tbl_fifo_stock WHERE product_id = ?) <= 0 THEN 'out of stock'
+                    WHEN (SELECT COALESCE(SUM(available_quantity), 0) FROM tbl_fifo_stock WHERE product_id = ?) <= 10 THEN 'low stock'
+                    ELSE 'in stock'
+                END
                 WHERE product_id = ?
             ");
-            $updateProductStmt->execute([$adjustment_qty, $adjustment_qty, $adjustment_qty, $product_id]);
-            error_log("✅ Product quantity updated");
+            $updateProductStmt->execute([$product_id, $product_id, $product_id]);
+            error_log("✅ Product stock status updated");
             
             // Create batch adjustment log entry
             error_log("🔄 Creating batch adjustment log entry...");

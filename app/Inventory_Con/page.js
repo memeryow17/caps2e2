@@ -103,37 +103,48 @@ export default function InventoryPage() {
       console.log('Inventory Logout attempt - User data:', userData);
       console.log('Inventory Logout attempt - Emp ID:', empId);
       
-      // Call logout API using configured API URL
-      const logoutUrl = getApiUrl('login.php');
-      console.log('Logout API URL:', logoutUrl);
-      
-      const response = await fetch(logoutUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'logout',
-          emp_id: empId 
-        })
-      });
-      
-      // Check if response is JSON
-      const contentType = response.headers.get('Content-Type');
-      console.log('Response Content-Type:', contentType);
-      
-      if (contentType && contentType.includes('application/json')) {
-        const result = await response.json();
-        console.log('Inventory Logout API response:', result);
-        
-        if (result.success) {
-          console.log('Inventory logout successful');
-        } else {
-          console.error('Inventory logout failed:', result.message);
+      // Only call logout API if we have an empId
+      if (empId) {
+        try {
+          // Call logout API using configured API URL with credentials
+          const logoutUrl = getApiUrl('login.php');
+          console.log('Logout API URL:', logoutUrl);
+          
+          const response = await fetch(logoutUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // Include session cookies
+            body: JSON.stringify({ 
+              action: 'logout',
+              emp_id: empId 
+            })
+          });
+          
+          // Check if response is JSON
+          const contentType = response.headers.get('Content-Type');
+          console.log('Response Content-Type:', contentType);
+          
+          if (contentType && contentType.includes('application/json')) {
+            const result = await response.json();
+            console.log('Inventory Logout API response:', result);
+            
+            if (result.success) {
+              console.log('Inventory logout successful');
+            } else {
+              console.warn('Inventory logout warning:', result.message);
+            }
+          } else {
+            // Response is not JSON (probably HTML error page)
+            const text = await response.text();
+            console.error('Logout API returned non-JSON response:', text.substring(0, 200));
+            console.warn('⚠️ Logout API returned HTML instead of JSON. Proceeding with local logout.');
+          }
+        } catch (apiError) {
+          console.warn('Inventory logout API error:', apiError);
+          // Continue with local cleanup even if API fails
         }
       } else {
-        // Response is not JSON (probably HTML error page)
-        const text = await response.text();
-        console.error('Logout API returned non-JSON response:', text.substring(0, 200));
-        console.warn('⚠️ Logout API returned HTML instead of JSON. Proceeding with local logout.');
+        console.warn('No employee ID found, clearing local session only');
       }
     } catch (error) {
       console.error('Inventory logout error:', error);
@@ -141,6 +152,7 @@ export default function InventoryPage() {
     } finally {
       // Always clear session and redirect
       sessionStorage.removeItem('user_data');
+      localStorage.clear(); // Clear any other stored data
       router.push('/');
     }
   };

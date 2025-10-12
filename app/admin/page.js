@@ -60,41 +60,46 @@ const logoutUser = async () => {
       }
     }
     
-    // Call logout API
-    const response = await fetch(LOGIN_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        action: 'logout',
-        emp_id: empId 
-      })
-    });
-    
-    const result = await response.json();
-    
-    
-    if (result.success) {
-      // Clear all stored data
-      sessionStorage.clear();
-      localStorage.removeItem('pos-terminal');
-      localStorage.removeItem('pos-cashier');
-      localStorage.removeItem('pos-emp-id');
-      
-      // Redirect to login page
-      window.location.href = '/';
-      return true;
+    // Only call logout API if we have an empId
+    if (empId) {
+      try {
+        // Call logout API with credentials to include session cookies
+        const response = await fetch(LOGIN_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', // Include session cookies
+          body: JSON.stringify({ 
+            action: 'logout',
+            emp_id: empId 
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log('Admin logout successful');
+        } else {
+          console.warn('Admin logout warning:', result.message);
+        }
+      } catch (apiError) {
+        console.warn('Admin logout API error:', apiError);
+        // Continue with local cleanup even if API fails
+      }
     } else {
-      
-      // Still clear local data and redirect even if API fails
-      sessionStorage.clear();
-      localStorage.removeItem('pos-terminal');
-      localStorage.removeItem('pos-cashier');
-      localStorage.removeItem('pos-emp-id');
-      window.location.href = '/';
-      return false;
+      console.warn('No employee ID found, clearing local session only');
     }
-  } catch (error) {
     
+    // Always clear all stored data and redirect
+    sessionStorage.clear();
+    localStorage.removeItem('pos-terminal');
+    localStorage.removeItem('pos-cashier');
+    localStorage.removeItem('pos-emp-id');
+    
+    // Redirect to login page
+    window.location.href = '/';
+    return true;
+  } catch (error) {
+    console.error('Logout error:', error);
     // Clear local data and redirect even if there's an error
     sessionStorage.clear();
     localStorage.removeItem('pos-terminal');

@@ -1635,8 +1635,8 @@ const StockAdjustment = () => {
 
       {/* Adjustment History Modal */}
       {showAdjustmentHistory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className={`${isDark ? 'bg-gray-800 border-2 border-blue-400' : 'bg-white border-2 border-blue-500'} rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden ring-4 ring-blue-200`}>
             <div className={`px-6 py-4 border-b flex items-center justify-between ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
               <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 📜 View Adjustment History

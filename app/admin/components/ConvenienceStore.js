@@ -63,8 +63,6 @@ function ConvenienceStore() {
   });
   const [alertCount, setAlertCount] = useState(0);
 
-  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost/caps2e2/Api'}/convenience_store_api.php`;
-
   // API function - Updated to use centralized API handler
   async function handleApiCall(action, data = {}) {
     try {
@@ -104,12 +102,12 @@ function ConvenienceStore() {
     });
     
     const lowStock = productList.filter(product => {
-      const quantity = parseInt(product.quantity || 0);
+      const quantity = parseInt(product.total_quantity || product.quantity || 0);
       return isStockLow(quantity) && settings.lowStockAlerts;
     });
     
     const outOfStock = productList.filter(product => {
-      const quantity = parseInt(product.quantity || 0);
+      const quantity = parseInt(product.total_quantity || product.quantity || 0);
       return quantity === 0;
     });
     
@@ -132,7 +130,7 @@ function ConvenienceStore() {
     if (!settings.autoReorder) return;
     
     const lowStockProducts = products.filter(product => {
-      const quantity = parseInt(product.quantity || 0);
+      const quantity = parseInt(product.total_quantity || product.quantity || 0);
       return isStockLow(quantity);
     });
     
@@ -184,6 +182,16 @@ function ConvenienceStore() {
     try {
       console.log("🔄 Loading convenience store products...");
       
+      // First sync transferred products to ensure proper pricing
+      try {
+        await handleApiCall("sync_transferred_products", {
+          location_name: "convenience"
+        });
+        console.log("✅ Synced transferred products for pricing");
+      } catch (syncError) {
+        console.warn("⚠️ Sync failed, continuing with load:", syncError);
+      }
+      
       // Use the new convenience store products API
       const response = await handleApiCall("get_convenience_products_fifo", {
         location_name: "convenience",
@@ -205,6 +213,20 @@ function ConvenienceStore() {
         );
         console.log("✅ Active convenience store products after filtering:", activeProducts.length);
         console.log("📋 Products:", activeProducts.map(p => `${p.product_name} (${p.quantity}) - ${p.product_type}`));
+        
+        // Debug SRP fields for first product
+        if (activeProducts.length > 0) {
+          const firstProduct = activeProducts[0];
+          console.log("🔍 SRP Debug for first product:", {
+            product_name: firstProduct.product_name,
+            srp: firstProduct.srp,
+            first_batch_srp: firstProduct.first_batch_srp,
+            unit_price: firstProduct.unit_price,
+            transfer_srp: firstProduct.transfer_srp,
+            allFields: Object.keys(firstProduct)
+          });
+        }
+        
         setProducts(activeProducts);
         calculateNotifications(activeProducts);
       } else {
@@ -617,16 +639,19 @@ function ConvenienceStore() {
   }).filter(Boolean))];
 
   // --- Dashboard Statistics Calculation ---
-  // Calculate total store value
+  // Calculate total store value using total_quantity (aggregated by product)
   const totalStoreValue = products.reduce(
-    (sum, p) => sum + (Number(p.first_batch_srp || p.srp || 0) * Number(p.quantity || 0)),
+    (sum, p) => sum + (Number(p.first_batch_srp || p.srp || 0) * Number(p.total_quantity || p.quantity || 0)),
     0
   );
   // For demo, use static percentage changes
   const percentChangeProducts = 3; // +3% from last month
   const percentChangeValue = 1; // +1% from last month
-  // Low stock count
-  const lowStockCount = products.filter(p => p.stock_status === 'low stock').length;
+  // Low stock count - check based on total_quantity
+  const lowStockCount = products.filter(p => {
+    const totalQty = parseInt(p.total_quantity || p.quantity || 0);
+    return totalQty > 0 && totalQty <= (settings.lowStockThreshold || 5);
+  }).length;
 
   // --- Pagination State ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -837,38 +862,40 @@ function ConvenienceStore() {
 
       {/* Dashboard Cards */}
       <div className="w-full px-6 pb-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {/* Store Products */}
-          <div className="rounded-xl shadow-md p-6 flex justify-between items-center min-h-[110px]" style={{ backgroundColor: theme.bg.card, boxShadow: `0 10px 25px ${theme.shadow}` }}>
-            <div>
+          <div className="rounded-xl shadow-md p-4 sm:p-6 flex justify-between items-center min-h-[110px] w-full" style={{ backgroundColor: theme.bg.card, boxShadow: `0 10px 25px ${theme.shadow}` }}>
+            <div className="flex-1 min-w-0">
               <div className="text-xs font-medium mb-1" style={{ color: theme.text.muted }}>STORE PRODUCTS</div>
-              <div className="text-4xl font-bold" style={{ color: theme.text.primary }}>{products.length}</div>
+              <div className="text-2xl sm:text-3xl lg:text-4xl font-bold" style={{ color: theme.text.primary }}>{products.length}</div>
               <div className="text-xs mt-2" style={{ color: theme.text.secondary }}>+{percentChangeProducts}% from last month</div>
             </div>
-            <div>
-              <Package className="h-10 w-10" style={{ color: theme.colors.accent }} />
+            <div className="ml-4 flex-shrink-0">
+              <Package className="h-8 w-8 sm:h-10 sm:w-10" style={{ color: theme.colors.accent }} />
             </div>
           </div>
           {/* Low Stock Items */}
-          <div className="rounded-xl shadow-md p-6 flex justify-between items-center min-h-[110px]" style={{ backgroundColor: theme.bg.card, boxShadow: `0 10px 25px ${theme.shadow}` }}>
-            <div>
+          <div className="rounded-xl shadow-md p-4 sm:p-6 flex justify-between items-center min-h-[110px] w-full" style={{ backgroundColor: theme.bg.card, boxShadow: `0 10px 25px ${theme.shadow}` }}>
+            <div className="flex-1 min-w-0">
               <div className="text-xs font-medium mb-1" style={{ color: theme.text.muted }}>LOW STOCK ITEMS</div>
-              <div className="text-4xl font-bold" style={{ color: theme.text.primary }}>{lowStockCount}</div>
+              <div className="text-2xl sm:text-3xl lg:text-4xl font-bold" style={{ color: theme.text.primary }}>{lowStockCount}</div>
               <div className="text-xs mt-2" style={{ color: theme.text.secondary }}>items below threshold</div>
             </div>
-            <div>
-              <AlertCircle className="h-10 w-10" style={{ color: theme.colors.danger }} />
+            <div className="ml-4 flex-shrink-0">
+              <AlertCircle className="h-8 w-8 sm:h-10 sm:w-10" style={{ color: theme.colors.danger }} />
             </div>
           </div>
           {/* Store Value */}
-          <div className="rounded-xl shadow-md p-6 flex justify-between items-center min-h-[110px]" style={{ backgroundColor: theme.bg.card, boxShadow: `0 10px 25px ${theme.shadow}` }}>
-            <div>
+          <div className="rounded-xl shadow-md p-4 sm:p-6 flex justify-between items-center min-h-[110px] w-full sm:col-span-2 lg:col-span-1" style={{ backgroundColor: theme.bg.card, boxShadow: `0 10px 25px ${theme.shadow}` }}>
+            <div className="flex-1 min-w-0">
               <div className="text-xs font-medium mb-1" style={{ color: theme.text.muted }}>STORE VALUE</div>
-              <div className="text-4xl font-bold" style={{ color: theme.text.primary }}>₱{totalStoreValue.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}</div>
+              <div className="text-lg sm:text-2xl lg:text-3xl xl:text-4xl font-bold break-words" style={{ color: theme.text.primary }}>
+                ₱{totalStoreValue.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}
+              </div>
               <div className="text-xs mt-2" style={{ color: theme.text.secondary }}>+{percentChangeValue}% from last month</div>
             </div>
-            <div>
-              <Package className="h-10 w-10" style={{ color: theme.colors.warning }} />
+            <div className="ml-4 flex-shrink-0">
+              <Package className="h-8 w-8 sm:h-10 sm:w-10" style={{ color: theme.colors.warning }} />
             </div>
           </div>
         </div>
@@ -1006,8 +1033,8 @@ function ConvenienceStore() {
                 </tr>
               ) : paginatedProducts.length > 0 ? (
                 paginatedProducts.filter(product => product && typeof product === 'object').map((product, index) => {
-                  // Check for alert conditions
-                  const quantity = parseInt(product.quantity || 0);
+                  // Check for alert conditions - use total_quantity for aggregated quantity by product
+                  const quantity = parseInt(product.total_quantity || product.quantity || 0);
                   const isLowStock = settings.lowStockAlerts && isStockLow(quantity);
                   const isOutOfStock = quantity <= 0;
                   const isExpiringSoon = product.expiration && settings.expiryAlerts && isProductExpiringSoon(product.expiration);
@@ -1043,7 +1070,7 @@ function ConvenienceStore() {
                     </td>
                     <td className="px-6 py-4 text-sm" style={{ color: theme.text.primary }}>
                       <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: theme.bg.secondary, color: theme.text.primary }}>
-                        {product.category}
+                        {product.category || product.category_name || 'Uncategorized'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm" style={{ color: theme.text.primary }}>
@@ -1051,11 +1078,20 @@ function ConvenienceStore() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className={`font-semibold ${quantity === 0 ? 'text-red-600' : quantity === 1 ? 'text-orange-600' : ''}`}>
-                        {product.quantity || 0} pieces
+                        {product.total_quantity || product.quantity || 0} pieces
                       </div>
+                      {/* Show breakdown if multiple batches */}
+                      {product.total_batches > 1 && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          ({product.total_batches} batches)
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-center text-sm" style={{ color: theme.text.primary }}>
-                      ₱{Number.parseFloat(product.first_batch_srp || product.srp || 0).toFixed(2)}
+                      ₱{(() => {
+                        const srpValue = Number.parseFloat(product.first_batch_srp || product.srp || 0);
+                        return srpValue > 0 ? srpValue.toFixed(2) : '0.00';
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-sm" style={{ color: theme.text.primary }}>
                       {product.supplier_name || product.brand || "Unknown"}
@@ -1206,7 +1242,7 @@ function ConvenienceStore() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Transfer Details</h4>
-                      <p className="text-sm text-green-600">Quantity: {selectedProductForBatch.quantity || 0} pieces</p>
+                      <p className="text-sm text-green-600">Quantity: {selectedProductForBatch.total_quantity || selectedProductForBatch.quantity || 0} pieces</p>
                       <p className="text-sm text-green-600">From: {selectedProductForBatch.source_location || 'Warehouse'}</p>
                       <p className="text-sm text-green-600">To: Convenience Store</p>
                     </div>
@@ -1279,7 +1315,7 @@ function ConvenienceStore() {
                         batchData.filter(batch => batch && typeof batch === 'object' && (batch.batch_quantity || batch.quantity || 0) > 0).map((batch, index) => {
                           const expiryDate = batch.expiration_date && batch.expiration_date !== 'null' ? new Date(batch.expiration_date).toLocaleDateString() : 'N/A';
                           const quantityUsed = batch.batch_quantity || batch.quantity || 0;
-                          const batchSrp = batch.batch_srp || batch.srp || 0;
+                          const srp = batch.srp || 0;
                           const batchReference = batch.batch_reference || `BR-${batch.batch_id || index + 1}`;
                           const isConsumed = quantityUsed > 0;
                           
@@ -1299,7 +1335,7 @@ function ConvenienceStore() {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                                ₱{Number.parseFloat(batchSrp).toFixed(2)}
+                                ₱{Number.parseFloat(srp).toFixed(2)}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                                 {expiryDate}
@@ -1334,7 +1370,7 @@ function ConvenienceStore() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Total Quantity:</span>
-                    <span className="ml-2 font-semibold text-gray-900">{selectedProductForBatch.quantity || 0} pieces</span>
+                    <span className="ml-2 font-semibold text-gray-900">{selectedProductForBatch?.total_quantity || selectedProductForBatch?.quantity || batchData.reduce((sum, batch) => sum + (batch.batch_quantity || 0), 0)} pieces</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Batches Used:</span>
@@ -1403,7 +1439,7 @@ function ConvenienceStore() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Transfer Details</h4>
-                      <p className="text-sm text-green-600">Quantity: {selectedProductForHistory.quantity || 0} pieces</p>
+                      <p className="text-sm text-green-600">Quantity: {selectedProductForHistory.total_quantity || selectedProductForHistory.quantity || 0} pieces</p>
                       <p className="text-sm text-green-600">From: {selectedProductForHistory.source_location || 'Warehouse'}</p>
                       <p className="text-sm text-green-600">To: Convenience Store</p>
                     </div>
@@ -1476,7 +1512,7 @@ function ConvenienceStore() {
                         batchData.filter(batch => batch && typeof batch === 'object' && (batch.batch_quantity || batch.quantity || 0) > 0).map((batch, index) => {
                           const expiryDate = batch.expiration_date && batch.expiration_date !== 'null' ? new Date(batch.expiration_date).toLocaleDateString() : 'N/A';
                           const quantityUsed = batch.batch_quantity || batch.quantity || 0;
-                          const batchSrp = batch.batch_srp || batch.srp || 0;
+                          const srp = batch.srp || 0;
                           const batchReference = batch.batch_reference || `BR-${batch.batch_id || index + 1}`;
                           const isConsumed = quantityUsed > 0;
                           
@@ -1496,7 +1532,7 @@ function ConvenienceStore() {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                                ₱{Number.parseFloat(batchSrp).toFixed(2)}
+                                ₱{Number.parseFloat(srp).toFixed(2)}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                                 {expiryDate}
@@ -1531,7 +1567,7 @@ function ConvenienceStore() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Total Quantity:</span>
-                    <span className="ml-2 font-semibold text-gray-900">{selectedProductForHistory.quantity || 0} pieces</span>
+                    <span className="ml-2 font-semibold text-gray-900">{selectedProductForBatch?.total_quantity || selectedProductForBatch?.quantity || batchData.reduce((sum, batch) => sum + (batch.batch_quantity || 0), 0)} pieces</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Batches Used:</span>
@@ -1655,7 +1691,6 @@ function ConvenienceStore() {
                           <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Batch Reference</th>
                           <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                           <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">SRP</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">SRP</th>
                           <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
                           <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                           <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Transfer Date</th>
@@ -1689,9 +1724,6 @@ function ConvenienceStore() {
                                 <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                                   {transfer.batch_quantity} pieces
                                 </span>
-                              </td>
-                              <td className="px-6 py-4 text-center text-sm font-medium text-gray-900">
-                                ₱{Number.parseFloat(transfer.unit_cost || 0).toFixed(2)}
                               </td>
                               <td className="px-6 py-4 text-center text-sm font-medium text-gray-900">
                                 ₱{Number.parseFloat(transfer.batch_srp || 0).toFixed(2)}

@@ -7,7 +7,7 @@ import { useTheme } from './ThemeContext';
 import { useNotification } from './NotificationContext';
 
 export default function ReturnManagement() {
-  const { theme } = useTheme();
+  const { isDarkMode, theme } = useTheme();
   const { markNotificationAsViewed, getTotalNotifications } = useNotification();
   const [activeTab, setActiveTab] = useState('pending');
   const [pendingReturns, setPendingReturns] = useState([]);
@@ -267,17 +267,45 @@ export default function ReturnManagement() {
     }
   };
 
+  // Theme-based styles
+  const themeStyles = {
+    container: {
+      backgroundColor: isDarkMode ? 'var(--inventory-bg-primary)' : 'var(--inventory-bg-primary)',
+      color: isDarkMode ? 'var(--inventory-text-primary)' : 'var(--inventory-text-primary)'
+    },
+    card: {
+      backgroundColor: isDarkMode ? 'var(--inventory-bg-card)' : 'var(--inventory-bg-card)',
+      borderColor: isDarkMode ? 'var(--inventory-border)' : 'var(--inventory-border)',
+      boxShadow: isDarkMode ? 'var(--inventory-shadow)' : 'var(--inventory-shadow)'
+    },
+    text: {
+      primary: isDarkMode ? 'var(--inventory-text-primary)' : 'var(--inventory-text-primary)',
+      secondary: isDarkMode ? 'var(--inventory-text-secondary)' : 'var(--inventory-text-secondary)',
+      muted: isDarkMode ? 'var(--inventory-text-muted)' : 'var(--inventory-text-muted)'
+    },
+    border: {
+      color: isDarkMode ? 'var(--inventory-border)' : 'var(--inventory-border)',
+      light: isDarkMode ? 'var(--inventory-border-light)' : 'var(--inventory-border-light)'
+    },
+    input: {
+      backgroundColor: isDarkMode ? 'var(--inventory-bg-card)' : 'var(--inventory-bg-card)',
+      borderColor: isDarkMode ? 'var(--inventory-border)' : 'var(--inventory-border)',
+      color: isDarkMode ? 'var(--inventory-text-primary)' : 'var(--inventory-text-primary)',
+      placeholderColor: isDarkMode ? 'var(--inventory-text-muted)' : 'var(--inventory-text-muted)'
+    }
+  };
+
   const getStatusBadge = (status) => {
     const statusColors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
-      completed: 'bg-gray-100 text-gray-800',
-      cancelled: 'bg-gray-100 text-gray-800'
+      pending: isDarkMode ? 'bg-yellow-900/30 text-yellow-300 border border-yellow-700' : 'bg-yellow-100 text-yellow-800',
+      approved: isDarkMode ? 'bg-green-900/30 text-green-300 border border-green-700' : 'bg-green-100 text-green-800',
+      rejected: isDarkMode ? 'bg-red-900/30 text-red-300 border border-red-700' : 'bg-red-100 text-red-800',
+      completed: isDarkMode ? 'bg-gray-900/30 text-gray-300 border border-gray-700' : 'bg-gray-100 text-gray-800',
+      cancelled: isDarkMode ? 'bg-gray-900/30 text-gray-300 border border-gray-700' : 'bg-gray-100 text-gray-800'
     };
     
     return (
-      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusColors[status] || 'bg-gray-100 text-gray-800'}`}>
+      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusColors[status] || (isDarkMode ? 'bg-gray-900/30 text-gray-300 border border-gray-700' : 'bg-gray-100 text-gray-800')}`}>
         {status.toUpperCase()}
       </span>
     );
@@ -305,28 +333,32 @@ export default function ReturnManagement() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6 min-h-screen" style={themeStyles.container}>
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-800">Return Management</h1>
+          <h1 className="text-2xl font-bold" style={{ color: themeStyles.text.primary }}>Return Management</h1>
           {getTotalNotifications('returns') > 0 && (
             <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
               {getTotalNotifications('returns')} New
             </span>
           )}
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm" style={{ color: themeStyles.text.muted }}>
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <span>Auto-refresh every 30s</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-sm text-gray-500">
+          <div className="text-sm" style={{ color: themeStyles.text.muted }}>
             Last updated: {lastRefresh.toLocaleTimeString()}
           </div>
           <button
             onClick={handleManualRefresh}
             disabled={loading}
-            className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-3 py-1 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ 
+              color: themeStyles.text.secondary,
+              ':hover': { color: themeStyles.text.primary }
+            }}
             title="Refresh now"
           >
             {loading ? 'Refreshing...' : '↻ Refresh'}
@@ -336,27 +368,45 @@ export default function ReturnManagement() {
 
       {/* Tabs */}
       <div className="mb-6">
-        <div className="border-b border-gray-200">
+        <div className="border-b" style={{ borderColor: themeStyles.border.color }}>
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('pending')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'pending'
-                  ? 'border-transparent text-gray-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-              style={activeTab === 'pending' ? { borderBottomColor: theme.colors.accent, color: theme.colors.accent } : {}}
+              className="py-2 px-1 border-b-2 font-medium text-sm transition-colors"
+              style={activeTab === 'pending' ? 
+                { borderBottomColor: theme.colors.accent, color: theme.colors.accent } : 
+                { borderBottomColor: 'transparent', color: themeStyles.text.secondary }
+              }
+              onMouseEnter={(e) => {
+                if (activeTab !== 'pending') {
+                  e.target.style.color = themeStyles.text.primary;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'pending') {
+                  e.target.style.color = themeStyles.text.secondary;
+                }
+              }}
             >
               Pending Returns ({pendingReturns.length})
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'history'
-                  ? 'border-transparent text-gray-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-              style={activeTab === 'history' ? { borderBottomColor: theme.colors.accent, color: theme.colors.accent } : {}}
+              className="py-2 px-1 border-b-2 font-medium text-sm transition-colors"
+              style={activeTab === 'history' ? 
+                { borderBottomColor: theme.colors.accent, color: theme.colors.accent } : 
+                { borderBottomColor: 'transparent', color: themeStyles.text.secondary }
+              }
+              onMouseEnter={(e) => {
+                if (activeTab !== 'history') {
+                  e.target.style.color = themeStyles.text.primary;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'history') {
+                  e.target.style.color = themeStyles.text.secondary;
+                }
+              }}
             >
               Return History ({returnHistory.length})
             </button>
@@ -365,14 +415,18 @@ export default function ReturnManagement() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
+      <div className="p-4 rounded-lg shadow mb-6" style={themeStyles.card}>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: themeStyles.text.primary }}>Status</label>
             <select
               value={filters.status}
               onChange={(e) => setFilters({...filters, status: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors"
+              style={{
+                ...themeStyles.input,
+                focusRingColor: theme.colors.accent
+              }}
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
@@ -382,11 +436,15 @@ export default function ReturnManagement() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: themeStyles.text.primary }}>Location</label>
             <select
               value={filters.location}
               onChange={(e) => setFilters({...filters, location: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors"
+              style={{
+                ...themeStyles.input,
+                focusRingColor: theme.colors.accent
+              }}
             >
               <option value="all">All Locations</option>
               <option value="Convenience Store">Convenience Store</option>
@@ -394,21 +452,29 @@ export default function ReturnManagement() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: themeStyles.text.primary }}>Date From</label>
             <input
               type="date"
               value={filters.dateFrom}
               onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors"
+              style={{
+                ...themeStyles.input,
+                focusRingColor: theme.colors.accent
+              }}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: themeStyles.text.primary }}>Date To</label>
             <input
               type="date"
               value={filters.dateTo}
               onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors"
+              style={{
+                ...themeStyles.input,
+                focusRingColor: theme.colors.accent
+              }}
             />
           </div>
         </div>
@@ -418,12 +484,12 @@ export default function ReturnManagement() {
       {loading ? (
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderBottomColor: theme.colors.accent }}></div>
-          <p className="mt-2 text-gray-600">Loading returns...</p>
+          <p className="mt-2" style={{ color: themeStyles.text.secondary }}>Loading returns...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="rounded-lg shadow overflow-hidden" style={themeStyles.card}>
           {filteredReturns().length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8" style={{ color: themeStyles.text.muted }}>
               <p className="text-lg">No returns found</p>
               <p className="text-sm">
                 {activeTab === 'pending' 
@@ -434,68 +500,69 @@ export default function ReturnManagement() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y" style={{ color: themeStyles.text.primary }}>
+                <thead className="border-b sticky top-0 z-10" style={{ backgroundColor: isDarkMode ? '#374151' : '#f8fafc', borderColor: themeStyles.border.color }}>
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeStyles.text.primary }}>
                       Return ID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeStyles.text.primary }}>
                       Original Transaction
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeStyles.text.primary }}>
                       Reason
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeStyles.text.primary }}>
                       Location
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeStyles.text.primary }}>
                       Amount
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeStyles.text.primary }}>
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeStyles.text.primary }}>
                       Submitted By
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeStyles.text.primary }}>
                       Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeStyles.text.primary }}>
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y" style={{ backgroundColor: themeStyles.card.backgroundColor, borderColor: themeStyles.border.color }}>
                   {filteredReturns().map((returnItem) => (
-                    <tr key={returnItem.return_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <tr key={returnItem.return_id} className="hover:opacity-80 transition-colors" style={{ backgroundColor: themeStyles.card.backgroundColor }}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" style={{ color: themeStyles.text.primary }}>
                         {returnItem.return_id}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: themeStyles.text.secondary }}>
                         {returnItem.original_transaction_id}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: themeStyles.text.secondary }}>
                         {returnItem.reason}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: themeStyles.text.secondary }}>
                         {returnItem.location_name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" style={{ color: themeStyles.text.primary }}>
                         {formatCurrency(returnItem.total_refund)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(returnItem.status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: themeStyles.text.secondary }}>
                         {returnItem.username}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: themeStyles.text.secondary }}>
                         {formatDate(returnItem.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => showReturnDetails(returnItem)}
+                          className="hover:underline transition-colors"
                           style={{ color: theme.colors.accent }}
                         >
                           View Details
@@ -513,15 +580,23 @@ export default function ReturnManagement() {
       {/* Return Details Modal */}
       {showDetailsModal && selectedReturn && (
         <div className="fixed inset-0 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border-2 border-blue-500 w-11/12 md:w-3/4 lg:w-1/2 shadow-2xl rounded-lg bg-white ring-4 ring-blue-200">
+          <div className="relative top-20 mx-auto p-5 border-2 shadow-2xl rounded-lg ring-4 w-11/12 md:w-3/4 lg:w-1/2" 
+               style={{ 
+                 borderColor: theme.colors.accent, 
+                 backgroundColor: themeStyles.card.backgroundColor,
+                 ringColor: isDarkMode ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'
+               }}>
             <div className="mt-3">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
+                <h3 className="text-lg font-medium" style={{ color: themeStyles.text.primary }}>
                   Return Details - {selectedReturn.return_id}
                 </h3>
                 <button
                   onClick={() => setShowDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="transition-colors"
+                  style={{ color: themeStyles.text.muted }}
+                  onMouseEnter={(e) => e.target.style.color = themeStyles.text.secondary}
+                  onMouseLeave={(e) => e.target.style.color = themeStyles.text.muted}
                 >
                   <span className="sr-only">Close</span>
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -533,70 +608,70 @@ export default function ReturnManagement() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Original Transaction</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedReturn.original_transaction_id}</p>
+                    <label className="block text-sm font-medium" style={{ color: themeStyles.text.primary }}>Original Transaction</label>
+                    <p className="mt-1 text-sm" style={{ color: themeStyles.text.secondary }}>{selectedReturn.original_transaction_id}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Location</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedReturn.location_name}</p>
+                    <label className="block text-sm font-medium" style={{ color: themeStyles.text.primary }}>Location</label>
+                    <p className="mt-1 text-sm" style={{ color: themeStyles.text.secondary }}>{selectedReturn.location_name}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Reason</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedReturn.reason}</p>
+                    <label className="block text-sm font-medium" style={{ color: themeStyles.text.primary }}>Reason</label>
+                    <p className="mt-1 text-sm" style={{ color: themeStyles.text.secondary }}>{selectedReturn.reason}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Status</label>
+                    <label className="block text-sm font-medium" style={{ color: themeStyles.text.primary }}>Status</label>
                     <div className="mt-1">{getStatusBadge(selectedReturn.status)}</div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Total Amount</label>
-                    <p className="mt-1 text-sm text-gray-900 font-medium">{formatCurrency(selectedReturn.total_refund)}</p>
+                    <label className="block text-sm font-medium" style={{ color: themeStyles.text.primary }}>Total Amount</label>
+                    <p className="mt-1 text-sm font-medium" style={{ color: themeStyles.text.primary }}>{formatCurrency(selectedReturn.total_refund)}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Submitted By</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedReturn.username}</p>
+                    <label className="block text-sm font-medium" style={{ color: themeStyles.text.primary }}>Submitted By</label>
+                    <p className="mt-1 text-sm" style={{ color: themeStyles.text.secondary }}>{selectedReturn.username}</p>
                   </div>
                 </div>
 
                 {selectedReturn.approved_by_username && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Approved By</label>
-                      <p className="mt-1 text-sm text-gray-900">{selectedReturn.approved_by_username}</p>
+                      <label className="block text-sm font-medium" style={{ color: themeStyles.text.primary }}>Approved By</label>
+                      <p className="mt-1 text-sm" style={{ color: themeStyles.text.secondary }}>{selectedReturn.approved_by_username}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Approved At</label>
-                      <p className="mt-1 text-sm text-gray-900">{formatDate(selectedReturn.approved_at)}</p>
+                      <label className="block text-sm font-medium" style={{ color: themeStyles.text.primary }}>Approved At</label>
+                      <p className="mt-1 text-sm" style={{ color: themeStyles.text.secondary }}>{formatDate(selectedReturn.approved_at)}</p>
                     </div>
                   </div>
                 )}
 
                 {selectedReturn.rejection_reason && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Rejection Reason</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedReturn.rejection_reason}</p>
+                    <label className="block text-sm font-medium" style={{ color: themeStyles.text.primary }}>Rejection Reason</label>
+                    <p className="mt-1 text-sm" style={{ color: themeStyles.text.secondary }}>{selectedReturn.rejection_reason}</p>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Return Items</label>
+                  <label className="block text-sm font-medium mb-2" style={{ color: themeStyles.text.primary }}>Return Items</label>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y" style={{ borderColor: themeStyles.border.color }}>
+                      <thead style={{ backgroundColor: isDarkMode ? '#374151' : '#f8fafc' }}>
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium uppercase" style={{ color: themeStyles.text.primary }}>Product</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium uppercase" style={{ color: themeStyles.text.primary }}>Quantity</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium uppercase" style={{ color: themeStyles.text.primary }}>Price</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium uppercase" style={{ color: themeStyles.text.primary }}>Total</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y" style={{ backgroundColor: themeStyles.card.backgroundColor, borderColor: themeStyles.border.color }}>
                         {selectedReturn.items.map((item, index) => (
                           <tr key={index}>
-                            <td className="px-4 py-2 text-sm text-gray-900">{item.product_name}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{formatCurrency(item.price)}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900 font-medium">{formatCurrency(item.total)}</td>
+                            <td className="px-4 py-2 text-sm" style={{ color: themeStyles.text.primary }}>{item.product_name}</td>
+                            <td className="px-4 py-2 text-sm" style={{ color: themeStyles.text.primary }}>{item.quantity}</td>
+                            <td className="px-4 py-2 text-sm" style={{ color: themeStyles.text.primary }}>{formatCurrency(item.price)}</td>
+                            <td className="px-4 py-2 text-sm font-medium" style={{ color: themeStyles.text.primary }}>{formatCurrency(item.total)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -635,15 +710,24 @@ export default function ReturnManagement() {
       {/* Approval Modal */}
       {showApprovalModal && (
         <div className="fixed inset-0 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border-2 border-green-500 w-96 shadow-2xl rounded-lg bg-white ring-4 ring-green-200">
+          <div className="relative top-20 mx-auto p-5 border-2 w-96 shadow-2xl rounded-lg ring-4" 
+               style={{ 
+                 borderColor: '#10b981', 
+                 backgroundColor: themeStyles.card.backgroundColor,
+                 ringColor: isDarkMode ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)'
+               }}>
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Approve Return</h3>
+              <h3 className="text-lg font-medium mb-4" style={{ color: themeStyles.text.primary }}>Approve Return</h3>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Approval Notes (Optional)</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: themeStyles.text.primary }}>Approval Notes (Optional)</label>
                 <textarea
                   value={approvalNotes}
                   onChange={(e) => setApprovalNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors"
+                  style={{
+                    ...themeStyles.input,
+                    focusRingColor: theme.colors.accent
+                  }}
                   rows={3}
                   placeholder="Add any notes about this approval..."
                 />
@@ -670,15 +754,24 @@ export default function ReturnManagement() {
       {/* Rejection Modal */}
       {showRejectionModal && (
         <div className="fixed inset-0 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border-2 border-red-500 w-96 shadow-2xl rounded-lg bg-white ring-4 ring-red-200">
+          <div className="relative top-20 mx-auto p-5 border-2 w-96 shadow-2xl rounded-lg ring-4" 
+               style={{ 
+                 borderColor: '#ef4444', 
+                 backgroundColor: themeStyles.card.backgroundColor,
+                 ringColor: isDarkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)'
+               }}>
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Reject Return</h3>
+              <h3 className="text-lg font-medium mb-4" style={{ color: themeStyles.text.primary }}>Reject Return</h3>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Rejection Reason *</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: themeStyles.text.primary }}>Rejection Reason *</label>
                 <textarea
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors"
+                  style={{
+                    ...themeStyles.input,
+                    focusRingColor: theme.colors.accent
+                  }}
                   rows={3}
                   placeholder="Please provide a reason for rejecting this return..."
                   required

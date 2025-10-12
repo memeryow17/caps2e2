@@ -230,6 +230,10 @@ class APIHandler {
     return this.callAPI(this.endpoints.CONVENIENCE, 'get_products', filters);
   }
 
+  async getConvenienceProductsFIFO(filters = {}) {
+    return this.callAPI(this.endpoints.CONVENIENCE, 'get_convenience_products_fifo', filters);
+  }
+
   async updateConvenienceStock(stockData) {
     return this.callAPI(this.endpoints.CONVENIENCE, 'update_stock', stockData);
   }
@@ -246,6 +250,30 @@ class APIHandler {
   
   async getPharmacyProducts(filters = {}) {
     return this.callAPI(this.endpoints.PHARMACY, 'get_pharmacy_products', filters);
+  }
+
+  async getPharmacyProductsFIFO(filters = {}) {
+    return this.callAPI(this.endpoints.PHARMACY, 'get_pharmacy_products_fifo', filters);
+  }
+
+  async getPharmacyProductsFixed(filters = {}) {
+    return this.callAPI('fix_pharmacy_apis.php', 'get_pharmacy_products_fixed', filters);
+  }
+
+  async getPharmacyKPIsFixed(filters = {}) {
+    return this.callAPI('fix_pharmacy_apis.php', 'get_pharmacy_kpis_fixed', filters);
+  }
+
+  async getPharmacyProductsFromBatch(filters = {}) {
+    return this.callAPI('batch_tracking.php', 'get_pharmacy_products', filters);
+  }
+
+  async getPharmacyKPIs(filters = {}) {
+    return this.callAPI(this.endpoints.PHARMACY, 'get_pharmacy_kpis', filters);
+  }
+
+  async getPharmacyStockSummary(filters = {}) {
+    return this.callAPI(this.endpoints.PHARMACY, 'get_stock_summary', filters);
   }
 
   async updatePharmacyStock(stockData) {
