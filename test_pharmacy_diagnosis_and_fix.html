@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy Diagnosis & Fix Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .fix-button {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .fix-button:hover {
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+        .success {
+            background: #d1fae5;
+            border-left: 5px solid #10b981;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .error {
+            background: #fee2e2;
+            border-left: 5px solid #ef4444;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 5px solid #f59e0b;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .info {
+            background: #e0f2fe;
+            border-left: 5px solid #0ea5e9;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .card {
+            background: #f9fafb;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .kpi {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .kpi h2 {
+            margin: 0;
+            color: #667eea;
+            font-size: 2.5em;
+        }
+        .kpi p {
+            margin: 5px 0 0 0;
+            color: #666;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.5em;
+            color: #667eea;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.85em;
+            max-height: 300px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .status-good { color: #10b981; font-weight: bold; }
+        .status-bad { color: #ef4444; font-weight: bold; }
+        .status-warning { color: #f59e0b; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Pharmacy Diagnosis & Fix Tool</h1>
+        <p class="subtitle">Comprehensive diagnosis and automatic fix for pharmacy dashboard issues</p>
+        
+        <button onclick="runFullDiagnosis()">🔍 Run Full Diagnosis</button>
+        <button onclick="fixMissingBatchDetails()" class="fix-button">🔧 Fix Missing Batch Details</button>
+        <button onclick="testPharmacyAPIs()">🧪 Test Pharmacy APIs</button>
+        <button onclick="location.reload()">🔃 Refresh</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost/caps2e2/Api';
+
+        async function api(endpoint, action, data = {}) {
+            try {
+                const response = await fetch(`${API_BASE}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...data })
+                });
+                return await response.json();
+            } catch (error) {
+                return { success: false, message: error.message };
+            }
+        }
+
+        async function runFullDiagnosis() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Running comprehensive diagnosis...</div>';
+            
+            let html = '';
+            
+            // Step 1: Get comprehensive pharmacy data
+            console.log('Getting pharmacy data...');
+            const pharmacyData = await api('check_pharmacy_transfers.php', 'check_pharmacy_data');
+            console.log('Pharmacy data:', pharmacyData);
+            
+            if (!pharmacyData.success) {
+                html += `
+                    <div class="error">
+                        <h2>❌ Error Getting Pharmacy Data</h2>
+                        <p>${pharmacyData.message}</p>
+                    </div>
+                `;
+                resultsDiv.innerHTML = html;
+                return;
+            }
+            
+            const data = pharmacyData.data;
+            
+            // Display summary
+            html += `
+                <div class="info">
+                    <h2>📊 Pharmacy System Overview</h2>
+                    <div class="grid">
+                        <div class="kpi">
+                            <h2>${data.summary.total_locations}</h2>
+                            <p>Locations</p>
+                        </div>
+                        <div class="kpi">
+                            <h2>${data.summary.total_transfers}</h2>
+                            <p>Approved Transfers</p>
+                        </div>
+                        <div class="kpi">
+                            <h2>${data.summary.total_transfer_details}</h2>
+                            <p>Transfer Details</p>
+                        </div>
+                        <div class="kpi">
+                            <h2>${data.summary.total_batch_details}</h2>
+                            <p>Batch Details</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Check pharmacy location
+            if (data.pharmacy_location_id) {
+                html += `
+                    <div class="success">
+                        <h2>✅ Pharmacy Location Found</h2>
+                        <p><strong>Location ID:</strong> ${data.pharmacy_location_id}</p>
+                        <p><strong>Location Name:</strong> ${data.location_map[data.pharmacy_location_id]}</p>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="error">
+                        <h2>❌ No Pharmacy Location Found</h2>
+                        <p>None of your locations contain "pharmacy" in the name.</p>
+                        <p><strong>Available locations:</strong> ${Object.values(data.location_map).join(', ')}</p>
+                    </div>
+                `;
+                resultsDiv.innerHTML = html;
+                return;
+            }
+            
+            // Check pharmacy transfers
+            if (data.pharmacy_transfers.length > 0) {
+                html += `
+                    <div class="success">
+                        <h2>✅ Found ${data.pharmacy_transfers.length} Pharmacy Transfers</h2>
+                        <p>These transfers should have moved products to pharmacy.</p>
+                        
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Transfer ID</th>
+                                    <th>Date</th>
+                                    <th>Product</th>
+                                    <th>Barcode</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                data.pharmacy_transfers.forEach(transfer => {
+                    html += `
+                        <tr>
+                            <td>${transfer.transfer_header_id}</td>
+                            <td>${transfer.date}</td>
+                            <td>${transfer.product_name || 'Unknown'}</td>
+                            <td>${transfer.barcode || 'N/A'}</td>
+                            <td>${transfer.qty}</td>
+                            <td>₱${transfer.price || 0}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `</tbody></table></div>`;
+                
+                // Check if batch details exist for these transfers
+                if (data.pharmacy_batch_details.length > 0) {
+                    html += `
+                        <div class="success">
+                            <h2>✅ Found ${data.pharmacy_batch_details.length} Pharmacy Batch Details</h2>
+                            <p>Products are properly stored in batch details table.</p>
+                            
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Product ID</th>
+                                        <th>Batch ID</th>
+                                        <th>Batch Reference</th>
+                                        <th>Quantity</th>
+                                        <th>SRP</th>
+                                        <th>Expiration</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    data.pharmacy_batch_details.forEach(batch => {
+                        html += `
+                            <tr>
+                                <td>${batch.product_id}</td>
+                                <td>${batch.batch_id}</td>
+                                <td>${batch.batch_reference}</td>
+                                <td>${batch.quantity}</td>
+                                <td>₱${batch.srp}</td>
+                                <td>${batch.expiration_date || 'N/A'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `</tbody></table></div>`;
+                    
+                    // Test pharmacy APIs
+                    html += await testPharmacyAPIsInternal();
+                    
+                } else {
+                    html += `
+                        <div class="warning">
+                            <h2>⚠️ No Pharmacy Batch Details Found</h2>
+                            <p><strong>This is the problem!</strong> You have ${data.pharmacy_transfers.length} approved transfers to pharmacy, but no batch details were created.</p>
+                            <p>The Dashboard looks for products in the <code>tbl_transfer_batch_details</code> table, but this table is empty for pharmacy location.</p>
+                            
+                            <div class="card">
+                                <h3>🔧 Solution Available</h3>
+                                <p>Click the <strong>"Fix Missing Batch Details"</strong> button to automatically create the missing batch detail records.</p>
+                                <p>This will make your transferred products visible in the Dashboard.</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+            } else {
+                html += `
+                    <div class="warning">
+                        <h2>⚠️ No Transfers Found to Pharmacy</h2>
+                        <p>You have ${data.summary.total_transfers} approved transfers, but none go to the pharmacy location.</p>
+                        <p><strong>Check:</strong> Make sure your transfers are going to location ID ${data.pharmacy_location_id} (${data.location_map[data.pharmacy_location_id]})</p>
+                    </div>
+                `;
+            }
+            
+            // Show all transfers for reference
+            html += `
+                <div class="info">
+                    <h2>📋 All Approved Transfers (for reference)</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Transfer ID</th>
+                                <th>Date</th>
+                                <th>From Location</th>
+                                <th>To Location</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            data.transfers.forEach(transfer => {
+                const fromLocation = data.location_map[transfer.source_location_id] || `ID ${transfer.source_location_id}`;
+                const toLocation = data.location_map[transfer.destination_location_id] || `ID ${transfer.destination_location_id}`;
+                
+                html += `
+                    <tr>
+                        <td>${transfer.transfer_header_id}</td>
+                        <td>${transfer.date}</td>
+                        <td>${fromLocation}</td>
+                        <td>${toLocation}</td>
+                        <td class="status-good">${transfer.status}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table></div>`;
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        async function fixMissingBatchDetails() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Creating missing batch details...</div>';
+            
+            console.log('Creating missing batch details...');
+            const result = await api('check_pharmacy_transfers.php', 'create_missing_batch_details');
+            console.log('Fix result:', result);
+            
+            let html = '';
+            
+            if (result.success) {
+                html += `
+                    <div class="success">
+                        <h2>✅ Fix Applied Successfully!</h2>
+                        <p>Created ${result.created_count} missing batch detail records.</p>
+                        <p><strong>Your pharmacy products should now be visible in the Dashboard!</strong></p>
+                        
+                        <div class="card">
+                            <h3>🎯 Next Steps</h3>
+                            <ol>
+                                <li>Refresh your Dashboard page</li>
+                                <li>Check the Pharmacy KPI section</li>
+                                <li>Products should now show up</li>
+                            </ol>
+                        </div>
+                    </div>
+                `;
+                
+                // Run diagnosis again to confirm fix
+                html += '<hr style="margin: 30px 0;">';
+                html += '<h2>🔍 Post-Fix Verification</h2>';
+                
+                const verifyResult = await api('check_pharmacy_transfers.php', 'check_pharmacy_data');
+                if (verifyResult.success) {
+                    const pharmacyBatchCount = verifyResult.data.summary.pharmacy_batch_details_count;
+                    html += `
+                        <div class="success">
+                            <h3>✅ Verification Complete</h3>
+                            <p>Pharmacy batch details count: <strong>${pharmacyBatchCount}</strong></p>
+                            <p>${pharmacyBatchCount > 0 ? 'Products should now be visible in Dashboard!' : 'Still no batch details found.'}</p>
+                        </div>
+                    `;
+                }
+                
+            } else {
+                html += `
+                    <div class="error">
+                        <h2>❌ Fix Failed</h2>
+                        <p>${result.message}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        async function testPharmacyAPIs() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Testing pharmacy APIs...</div>';
+            
+            const apiResult = await testPharmacyAPIsInternal();
+            resultsDiv.innerHTML = apiResult;
+        }
+
+        async function testPharmacyAPIsInternal() {
+            let html = '<div class="info"><h2>🧪 Pharmacy API Test Results</h2>';
+            
+            // Test all pharmacy API methods
+            const methods = [
+                { name: 'Pharmacy FIFO API', action: 'get_pharmacy_products_fifo', endpoint: 'pharmacy_api.php' },
+                { name: 'Batch Tracking API', action: 'get_pharmacy_products', endpoint: 'batch_tracking.php' },
+                { name: 'All Products Filter', action: 'get_products', endpoint: 'backend.php' }
+            ];
+            
+            for (const method of methods) {
+                console.log(`Testing ${method.name}...`);
+                
+                let result;
+                if (method.endpoint === 'backend.php') {
+                    result = await api(method.endpoint, method.action, {});
+                } else {
+                    result = await api(method.endpoint, method.action, { location_name: 'pharmacy' });
+                }
+                
+                console.log(`${method.name} result:`, result);
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    html += `
+                        <div class="success">
+                            <h3>✅ ${method.name}</h3>
+                            <p>Found ${result.data.length} products</p>
+                            <p><strong>Sample product:</strong> ${result.data[0].product_name || 'Unknown'}</p>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="warning">
+                            <h3>⚠️ ${method.name}</h3>
+                            <p>${result.message || 'No products found'}</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        // Auto-run diagnosis on load
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Running diagnosis...');
+            setTimeout(runFullDiagnosis, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Data Fetch Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            border-left: 4px solid #667eea;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .loading {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 Dashboard Data Fetch Test</h1>
+        <p>Comprehensive test for all dashboard API endpoints</p>
+    </div>
+
+    <div class="test-section">
+        <h3>🎯 Quick Test All Endpoints</h3>
+        <button onclick="testAllEndpoints()">🚀 Test All Endpoints</button>
+        <div id="allResults" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Individual Endpoint Tests</h3>
+        <button onclick="testCategories()">Get Categories</button>
+        <button onclick="testLocations()">Get Locations</button>
+        <button onclick="testWarehouseKPIs()">Get Warehouse KPIs</button>
+        <button onclick="testTopProducts()">Get Top Products</button>
+        <button onclick="testCategoryDistribution()">Get Category Distribution</button>
+        <button onclick="testFastMoving()">Get Fast-Moving Items</button>
+        <button onclick="testCriticalAlerts()">Get Critical Alerts</button>
+        <button onclick="testConvenienceProducts()">Get Convenience Products</button>
+        <button onclick="testPharmacyProducts()">Get Pharmacy Products</button>
+        <button onclick="testTransfers()">Get Transfers</button>
+        <div id="individualResult" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 Data Summary</h3>
+        <div id="dataSummary" class="stats-grid"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost/caps2e2/Api';
+
+        async function callAPI(endpoint, action, data = {}) {
+            const url = `${API_BASE_URL}/${endpoint}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, ...data })
+            });
+            return await response.json();
+        }
+
+        function showResult(elementId, content, status = 'info') {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.innerHTML = content;
+            if (status === 'success') {
+                el.style.borderLeftColor = '#28a745';
+            } else if (status === 'error') {
+                el.style.borderLeftColor = '#dc3545';
+            }
+        }
+
+        async function testCategories() {
+            showResult('individualResult', '<span class="loading">⏳ Loading categories...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_categories');
+                const count = result.success ? result.data.length : 0;
+                showResult('individualResult', `
+                    <span class="success">✅ Categories Loaded: ${count} categories</span>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, 'success');
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testLocations() {
+            showResult('individualResult', '<span class="loading">⏳ Loading locations...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_locations');
+                const count = result.success ? result.data.length : 0;
+                showResult('individualResult', `
+                    <span class="success">✅ Locations Loaded: ${count} locations</span>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, 'success');
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testWarehouseKPIs() {
+            showResult('individualResult', '<span class="loading">⏳ Loading warehouse KPIs...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_warehouse_kpis', {
+                    product: 'All',
+                    location: 'Warehouse',
+                    timePeriod: 'monthly'
+                });
+                showResult('individualResult', `
+                    <span class="success">✅ Warehouse KPIs Loaded</span>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, 'success');
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testTopProducts() {
+            showResult('individualResult', '<span class="loading">⏳ Loading top products...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_top_products_by_quantity', {
+                    product: 'All',
+                    location: 'Warehouse',
+                    timePeriod: 'monthly'
+                });
+                const count = result.success ? result.data.length : 0;
+                showResult('individualResult', `
+                    <span class="success">✅ Top Products Loaded: ${count} products</span>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, 'success');
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testCategoryDistribution() {
+            showResult('individualResult', '<span class="loading">⏳ Loading category distribution...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_stock_distribution_by_category', {
+                    product: 'All',
+                    location: 'Warehouse',
+                    timePeriod: 'monthly'
+                });
+                const count = result.success ? result.data.length : 0;
+                showResult('individualResult', `
+                    <span class="success">✅ Category Distribution Loaded: ${count} categories</span>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, 'success');
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testFastMoving() {
+            showResult('individualResult', '<span class="loading">⏳ Loading fast-moving items...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_fast_moving_items_trend', {
+                    product: 'All',
+                    location: 'Warehouse',
+                    timePeriod: 'monthly'
+                });
+                const count = result.success ? result.data.length : 0;
+                showResult('individualResult', `
+                    <span class="success">✅ Fast-Moving Items Loaded: ${count} data points</span>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, 'success');
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testCriticalAlerts() {
+            showResult('individualResult', '<span class="loading">⏳ Loading critical alerts...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_critical_stock_alerts', {
+                    product: 'All',
+                    location: 'Warehouse',
+                    timePeriod: 'monthly'
+                });
+                const count = result.success ? result.data.length : 0;
+                showResult('individualResult', `
+                    <span class="success">✅ Critical Alerts Loaded: ${count} alerts</span>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, 'success');
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testConvenienceProducts() {
+            showResult('individualResult', '<span class="loading">⏳ Loading convenience products...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_products', {});
+                const count = result.success ? result.data.length : 0;
+                showResult('individualResult', `
+                    <span class="success">✅ Products Loaded: ${count} products</span>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, 'success');
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testPharmacyProducts() {
+            await testConvenienceProducts(); // Same endpoint
+        }
+
+        async function testTransfers() {
+            showResult('individualResult', '<span class="loading">⏳ Loading transfers...</span>');
+            try {
+                const result = await callAPI('transfer_api.php', 'get_transfers_with_details', {});
+                const count = result.success ? result.data.length : 0;
+                showResult('individualResult', `
+                    <span class="success">✅ Transfers Loaded: ${count} transfers</span>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, 'success');
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testAllEndpoints() {
+            showResult('allResults', '<span class="loading">⏳ Testing all endpoints... Please wait...</span>');
+            
+            const tests = [
+                { name: 'Categories', fn: () => callAPI('backend.php', 'get_categories') },
+                { name: 'Locations', fn: () => callAPI('backend.php', 'get_locations') },
+                { name: 'Warehouse KPIs', fn: () => callAPI('backend.php', 'get_warehouse_kpis', { product: 'All', location: 'Warehouse', timePeriod: 'monthly' }) },
+                { name: 'Top Products', fn: () => callAPI('backend.php', 'get_top_products_by_quantity', { product: 'All', location: 'Warehouse', timePeriod: 'monthly' }) },
+                { name: 'Category Distribution', fn: () => callAPI('backend.php', 'get_stock_distribution_by_category', { product: 'All', location: 'Warehouse', timePeriod: 'monthly' }) },
+                { name: 'Fast-Moving Items', fn: () => callAPI('backend.php', 'get_fast_moving_items_trend', { product: 'All', location: 'Warehouse', timePeriod: 'monthly' }) },
+                { name: 'Critical Alerts', fn: () => callAPI('backend.php', 'get_critical_stock_alerts', { product: 'All', location: 'Warehouse', timePeriod: 'monthly' }) },
+                { name: 'Products', fn: () => callAPI('backend.php', 'get_products', {}) },
+                { name: 'Transfers', fn: () => callAPI('transfer_api.php', 'get_transfers_with_details', {}) }
+            ];
+
+            const results = await Promise.allSettled(tests.map(t => t.fn()));
+            
+            let summary = '<h4>📊 Test Summary</h4><ul>';
+            let dataSummaryHTML = '';
+            let successCount = 0;
+            
+            results.forEach((result, index) => {
+                const testName = tests[index].name;
+                if (result.status === 'fulfilled' && result.value.success) {
+                    const count = Array.isArray(result.value.data) ? result.value.data.length : 'N/A';
+                    summary += `<li><span class="success">✅ ${testName}</span> - ${count} items</li>`;
+                    dataSummaryHTML += `
+                        <div class="stat-card">
+                            <div class="stat-label">${testName}</div>
+                            <div class="stat-value">${count}</div>
+                        </div>
+                    `;
+                    successCount++;
+                } else {
+                    summary += `<li><span class="error">❌ ${testName}</span> - Failed</li>`;
+                }
+            });
+            
+            summary += `</ul><p><strong>Success Rate: ${successCount}/${tests.length} (${Math.round(successCount/tests.length*100)}%)</strong></p>`;
+            
+            showResult('allResults', summary, successCount === tests.length ? 'success' : 'error');
+            document.getElementById('dataSummary').innerHTML = dataSummaryHTML;
+        }
+
+        // Auto-run on page load
+        window.onload = () => {
+            console.log('Dashboard Data Fetch Test Page Loaded');
+            console.log('Click "Test All Endpoints" to start comprehensive test');
+        };
+    </script>
+</body>
+</html>
+

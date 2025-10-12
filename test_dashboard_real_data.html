@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Real Data Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            color: #4CAF50;
+            margin-top: 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.success {
+            background: #4CAF50;
+            color: white;
+        }
+        .status.error {
+            background: #f44336;
+            color: white;
+        }
+        .status.pending {
+            background: #ff9800;
+            color: white;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .kpi-card {
+            display: inline-block;
+            background: #e3f2fd;
+            padding: 15px;
+            margin: 10px;
+            border-radius: 8px;
+            min-width: 150px;
+            text-align: center;
+        }
+        .kpi-card h3 {
+            margin: 0;
+            color: #1976d2;
+            font-size: 32px;
+        }
+        .kpi-card p {
+            margin: 5px 0 0 0;
+            color: #555;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .chart-data {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .chart-item {
+            background: #f9f9f9;
+            padding: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Dashboard Real Data Verification Test</h1>
+        <p>This test verifies that the Dashboard is receiving REAL data from the database via PHP APIs.</p>
+        
+        <button onclick="testAllAPIs()">🔄 Test All APIs</button>
+        <button onclick="location.reload()">🔃 Refresh Page</button>
+
+        <!-- Warehouse KPIs -->
+        <div class="test-section" id="warehouse-kpis-section">
+            <h2>1. Warehouse KPIs <span class="status pending" id="warehouse-kpis-status">PENDING</span></h2>
+            <button onclick="testWarehouseKPIs()">Test Warehouse KPIs</button>
+            <div id="warehouse-kpis-result"></div>
+        </div>
+
+        <!-- Top Products -->
+        <div class="test-section" id="top-products-section">
+            <h2>2. Top Products by Quantity <span class="status pending" id="top-products-status">PENDING</span></h2>
+            <button onclick="testTopProducts()">Test Top Products</button>
+            <div id="top-products-result"></div>
+        </div>
+
+        <!-- Stock Distribution -->
+        <div class="test-section" id="stock-distribution-section">
+            <h2>3. Stock Distribution by Category <span class="status pending" id="stock-distribution-status">PENDING</span></h2>
+            <button onclick="testStockDistribution()">Test Stock Distribution</button>
+            <div id="stock-distribution-result"></div>
+        </div>
+
+        <!-- Fast Moving Items -->
+        <div class="test-section" id="fast-moving-section">
+            <h2>4. Fast Moving Items Trend <span class="status pending" id="fast-moving-status">PENDING</span></h2>
+            <button onclick="testFastMovingItems()">Test Fast Moving Items</button>
+            <div id="fast-moving-result"></div>
+        </div>
+
+        <!-- Critical Stock Alerts -->
+        <div class="test-section" id="critical-stock-section">
+            <h2>5. Critical Stock Alerts <span class="status pending" id="critical-stock-status">PENDING</span></h2>
+            <button onclick="testCriticalStockAlerts()">Test Critical Stock Alerts</button>
+            <div id="critical-stock-result"></div>
+        </div>
+
+        <!-- Database Check -->
+        <div class="test-section" id="database-check-section">
+            <h2>6. Database Product Count <span class="status pending" id="database-check-status">PENDING</span></h2>
+            <button onclick="testDatabaseProductCount()">Check Database</button>
+            <div id="database-check-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost/caps2e2/Api/backend.php';
+
+        async function callAPI(action, data = {}) {
+            try {
+                const response = await fetch(API_BASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        ...data
+                    })
+                });
+                
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('API call error:', error);
+                return { success: false, message: error.message };
+            }
+        }
+
+        function updateStatus(elementId, success) {
+            const statusElement = document.getElementById(elementId);
+            if (success) {
+                statusElement.className = 'status success';
+                statusElement.textContent = '✅ SUCCESS';
+            } else {
+                statusElement.className = 'status error';
+                statusElement.textContent = '❌ ERROR';
+            }
+        }
+
+        async function testWarehouseKPIs() {
+            console.log('🏭 Testing Warehouse KPIs...');
+            const result = await callAPI('get_warehouse_kpis', {
+                product: 'All',
+                location: 'Warehouse'
+            });
+            
+            console.log('Warehouse KPIs Result:', result);
+            
+            const resultDiv = document.getElementById('warehouse-kpis-result');
+            
+            if (result.success && result.data) {
+                updateStatus('warehouse-kpis-status', true);
+                const data = result.data;
+                
+                resultDiv.innerHTML = `
+                    <div class="kpi-card">
+                        <h3>${data.totalProducts || 0}</h3>
+                        <p>Total Products</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>${data.totalSuppliers || 0}</h3>
+                        <p>Total Suppliers</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>₱${parseFloat(data.warehouseValue || 0).toLocaleString()}</h3>
+                        <p>Warehouse Value</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>${data.lowStockItems || 0}</h3>
+                        <p>Low Stock Items</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>${data.expiringSoon || 0}</h3>
+                        <p>Expiring Soon</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>${data.totalBatches || 0}</h3>
+                        <p>Total Batches</p>
+                    </div>
+                    <h3>Raw Response:</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            } else {
+                updateStatus('warehouse-kpis-status', false);
+                resultDiv.innerHTML = `
+                    <p style="color: red;">❌ Failed: ${result.message || 'Unknown error'}</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testTopProducts() {
+            console.log('📈 Testing Top Products...');
+            const result = await callAPI('get_top_products_by_quantity', {
+                product: 'All',
+                location: 'All'
+            });
+            
+            console.log('Top Products Result:', result);
+            
+            const resultDiv = document.getElementById('top-products-result');
+            
+            if (result.success && result.data) {
+                updateStatus('top-products-status', true);
+                const products = result.data;
+                
+                let html = `<p><strong>Found ${products.length} products</strong></p><div class="chart-data">`;
+                products.forEach((product, index) => {
+                    html += `
+                        <div class="chart-item">
+                            <strong>#${index + 1}: ${product.product}</strong><br>
+                            Quantity: <strong>${product.quantity}</strong><br>
+                            Category: ${product.category || 'N/A'}<br>
+                            Location: ${product.location || 'N/A'}
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                html += `<h3>Raw Response:</h3><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                resultDiv.innerHTML = html;
+            } else {
+                updateStatus('top-products-status', false);
+                resultDiv.innerHTML = `
+                    <p style="color: red;">❌ Failed: ${result.message || 'Unknown error'}</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testStockDistribution() {
+            console.log('📊 Testing Stock Distribution...');
+            const result = await callAPI('get_stock_distribution_by_category', {
+                product: 'All',
+                location: 'All'
+            });
+            
+            console.log('Stock Distribution Result:', result);
+            
+            const resultDiv = document.getElementById('stock-distribution-result');
+            
+            if (result.success && result.data) {
+                updateStatus('stock-distribution-status', true);
+                const categories = result.data;
+                
+                let html = `<p><strong>Found ${categories.length} categories</strong></p><div class="chart-data">`;
+                categories.forEach((cat, index) => {
+                    const percentage = categories.reduce((sum, c) => sum + parseInt(c.quantity), 0) > 0 
+                        ? ((parseInt(cat.quantity) / categories.reduce((sum, c) => sum + parseInt(c.quantity), 0)) * 100).toFixed(1)
+                        : 0;
+                    html += `
+                        <div class="chart-item">
+                            <strong>${cat.category}</strong><br>
+                            Quantity: <strong>${cat.quantity}</strong><br>
+                            Percentage: ${percentage}%
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                html += `<h3>Raw Response:</h3><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                resultDiv.innerHTML = html;
+            } else {
+                updateStatus('stock-distribution-status', false);
+                resultDiv.innerHTML = `
+                    <p style="color: red;">❌ Failed: ${result.message || 'Unknown error'}</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testFastMovingItems() {
+            console.log('🚀 Testing Fast Moving Items...');
+            const result = await callAPI('get_fast_moving_items_trend', {
+                product: 'All',
+                location: 'All',
+                timePeriod: 'monthly'
+            });
+            
+            console.log('Fast Moving Items Result:', result);
+            
+            const resultDiv = document.getElementById('fast-moving-result');
+            
+            if (result.success && result.data) {
+                updateStatus('fast-moving-status', true);
+                const items = result.data;
+                
+                // Group by product
+                const productGroups = {};
+                items.forEach(item => {
+                    if (!productGroups[item.product]) {
+                        productGroups[item.product] = [];
+                    }
+                    productGroups[item.product].push(item);
+                });
+                
+                let html = `<p><strong>Found ${items.length} data points for ${Object.keys(productGroups).length} products</strong></p>`;
+                html += `<div class="chart-data">`;
+                Object.entries(productGroups).slice(0, 5).forEach(([product, data]) => {
+                    const totalMovement = data.reduce((sum, d) => sum + parseInt(d.quantity || 0), 0);
+                    html += `
+                        <div class="chart-item">
+                            <strong>${product}</strong><br>
+                            Total Movement: <strong>${totalMovement}</strong><br>
+                            Data Points: ${data.length}
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                html += `<h3>Raw Response:</h3><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                resultDiv.innerHTML = html;
+            } else {
+                updateStatus('fast-moving-status', false);
+                resultDiv.innerHTML = `
+                    <p style="color: red;">❌ Failed: ${result.message || 'Unknown error'}</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testCriticalStockAlerts() {
+            console.log('⚠️ Testing Critical Stock Alerts...');
+            const result = await callAPI('get_critical_stock_alerts', {
+                product: 'All',
+                location: 'All'
+            });
+            
+            console.log('Critical Stock Alerts Result:', result);
+            
+            const resultDiv = document.getElementById('critical-stock-result');
+            
+            if (result.success && result.data) {
+                updateStatus('critical-stock-status', true);
+                const alerts = result.data;
+                
+                let html = `<p><strong>Found ${alerts.length} critical items</strong></p><div class="chart-data">`;
+                alerts.forEach((alert, index) => {
+                    html += `
+                        <div class="chart-item" style="border-left-color: ${alert.quantity === 0 ? 'red' : 'orange'}">
+                            <strong>#${index + 1}: ${alert.product}</strong><br>
+                            Quantity: <strong style="color: red;">${alert.quantity}</strong><br>
+                            Category: ${alert.category || 'N/A'}<br>
+                            Location: ${alert.location || 'N/A'}<br>
+                            Alert: <strong>${alert.alert_level || 'Low Stock'}</strong>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                html += `<h3>Raw Response:</h3><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                resultDiv.innerHTML = html;
+            } else {
+                updateStatus('critical-stock-status', false);
+                resultDiv.innerHTML = `
+                    <p style="color: red;">❌ Failed: ${result.message || 'Unknown error'}</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testDatabaseProductCount() {
+            console.log('💾 Testing Database Product Count...');
+            const result = await callAPI('get_products', {});
+            
+            console.log('Database Check Result:', result);
+            
+            const resultDiv = document.getElementById('database-check-result');
+            
+            if (result.success && result.data) {
+                updateStatus('database-check-status', true);
+                const products = result.data;
+                
+                resultDiv.innerHTML = `
+                    <div class="kpi-card">
+                        <h3>${products.length}</h3>
+                        <p>Total Products in Database</p>
+                    </div>
+                    <p>✅ Database connection successful!</p>
+                    <p>Sample products:</p>
+                    <ul>
+                        ${products.slice(0, 5).map(p => `<li><strong>${p.product_name}</strong> - Qty: ${p.quantity || 0} - Category: ${p.category_name || 'N/A'}</li>`).join('')}
+                    </ul>
+                    <h3>First Product (Raw):</h3>
+                    <pre>${JSON.stringify(products[0], null, 2)}</pre>
+                `;
+            } else {
+                updateStatus('database-check-status', false);
+                resultDiv.innerHTML = `
+                    <p style="color: red;">❌ Failed: ${result.message || 'Unknown error'}</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testAllAPIs() {
+            console.log('🚀 Testing all APIs...');
+            await testDatabaseProductCount();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testWarehouseKPIs();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testTopProducts();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testStockDistribution();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testFastMovingItems();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testCriticalStockAlerts();
+            console.log('✅ All API tests completed!');
+        }
+
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            console.log('🎯 Page loaded. Running tests in 1 second...');
+            setTimeout(testAllAPIs, 1000);
+        });
+    </script>
+</body>
+</html>
+

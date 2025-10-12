@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy Data Verification Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        h1 {
+            color: #667eea;
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 25px;
+            margin: 20px 0;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+        }
+        .test-section h2 {
+            color: #667eea;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .status.success {
+            background: #10b981;
+            color: white;
+        }
+        .status.error {
+            background: #ef4444;
+            color: white;
+        }
+        .status.pending {
+            background: #f59e0b;
+            color: white;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .kpi-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .kpi-card h3 {
+            margin: 0;
+            color: #667eea;
+            font-size: 2.5em;
+        }
+        .kpi-card p {
+            margin: 10px 0 0 0;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .product-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        .product-card h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .product-info {
+            font-size: 0.85em;
+            color: #666;
+            line-height: 1.6;
+        }
+        .product-info strong {
+            color: #333;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 0.85em;
+            line-height: 1.5;
+        }
+        .stats-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin: 5px;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .alert-success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+        .alert-error {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+        .loading::after {
+            content: '⏳';
+            font-size: 3em;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💊 Pharmacy Data Verification</h1>
+        <p class="subtitle">Testing real-time data from pharmacy database tables</p>
+        
+        <div style="margin-bottom: 20px;">
+            <button onclick="testAllPharmacyData()">🔄 Test All Pharmacy Data</button>
+            <button onclick="location.reload()">🔃 Refresh Page</button>
+        </div>
+
+        <!-- Pharmacy Products -->
+        <div class="test-section">
+            <h2>
+                1. Pharmacy Products (Main Data)
+                <span class="status pending" id="pharmacy-products-status">PENDING</span>
+            </h2>
+            <button onclick="testPharmacyProducts()">Test Pharmacy Products</button>
+            <div id="pharmacy-products-result"></div>
+        </div>
+
+        <!-- FIFO Stock Data -->
+        <div class="test-section">
+            <h2>
+                2. FIFO Stock Verification
+                <span class="status pending" id="fifo-stock-status">PENDING</span>
+            </h2>
+            <button onclick="testFIFOStock()">Test FIFO Stock</button>
+            <div id="fifo-stock-result"></div>
+        </div>
+
+        <!-- Pharmacy Location -->
+        <div class="test-section">
+            <h2>
+                3. Pharmacy Location Check
+                <span class="status pending" id="location-status">PENDING</span>
+            </h2>
+            <button onclick="testPharmacyLocation()">Test Location</button>
+            <div id="location-result"></div>
+        </div>
+
+        <!-- Database Tables Check -->
+        <div class="test-section">
+            <h2>
+                4. Database Tables Verification
+                <span class="status pending" id="database-status">PENDING</span>
+            </h2>
+            <button onclick="testDatabaseTables()">Check Database Tables</button>
+            <div id="database-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost/caps2e2/Api';
+
+        function updateStatus(elementId, success) {
+            const statusElement = document.getElementById(elementId);
+            if (success) {
+                statusElement.className = 'status success';
+                statusElement.textContent = '✅ SUCCESS';
+            } else {
+                statusElement.className = 'status error';
+                statusElement.textContent = '❌ ERROR';
+            }
+        }
+
+        async function callAPI(endpoint, action, data = {}) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        ...data
+                    })
+                });
+                
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('API call error:', error);
+                return { success: false, message: error.message };
+            }
+        }
+
+        async function testPharmacyProducts() {
+            console.log('💊 Testing Pharmacy Products...');
+            const resultDiv = document.getElementById('pharmacy-products-result');
+            resultDiv.innerHTML = '<div class="loading">Loading pharmacy products...</div>';
+            
+            // Try multiple endpoints to ensure we get data
+            const [batchResult, backendResult] = await Promise.all([
+                callAPI('batch_tracking.php', 'get_pharmacy_products', {
+                    location_name: 'pharmacy'
+                }),
+                callAPI('backend.php', 'get_products', {})
+            ]);
+            
+            console.log('Pharmacy Products Result:', batchResult);
+            console.log('All Products Result:', backendResult);
+            
+            if (batchResult.success && batchResult.data && batchResult.data.length > 0) {
+                updateStatus('pharmacy-products-status', true);
+                const products = batchResult.data;
+                
+                // Calculate statistics
+                const totalProducts = products.length;
+                const totalQuantity = products.reduce((sum, p) => sum + parseInt(p.quantity || 0), 0);
+                const totalValue = products.reduce((sum, p) => {
+                    const qty = parseInt(p.quantity || 0);
+                    const srp = parseFloat(p.srp || p.first_batch_srp || 0);
+                    return sum + (qty * srp);
+                }, 0);
+                const lowStock = products.filter(p => parseInt(p.quantity || 0) <= 10 && parseInt(p.quantity || 0) > 0).length;
+                const outOfStock = products.filter(p => parseInt(p.quantity || 0) === 0).length;
+                const categories = [...new Set(products.map(p => p.category_name).filter(Boolean))];
+                
+                let html = `
+                    <div class="alert alert-success">
+                        <strong>✅ Pharmacy Database Connection Successful!</strong><br>
+                        Found ${totalProducts} products in pharmacy inventory
+                    </div>
+                    
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <h3>${totalProducts}</h3>
+                            <p>Total Products</p>
+                        </div>
+                        <div class="kpi-card">
+                            <h3>${totalQuantity}</h3>
+                            <p>Total Stock</p>
+                        </div>
+                        <div class="kpi-card">
+                            <h3>₱${totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h3>
+                            <p>Total Value</p>
+                        </div>
+                        <div class="kpi-card">
+                            <h3>${lowStock}</h3>
+                            <p>Low Stock</p>
+                        </div>
+                        <div class="kpi-card">
+                            <h3>${outOfStock}</h3>
+                            <p>Out of Stock</p>
+                        </div>
+                        <div class="kpi-card">
+                            <h3>${categories.length}</h3>
+                            <p>Categories</p>
+                        </div>
+                    </div>
+                    
+                    <h3>📦 Sample Products (First 6):</h3>
+                    <div class="product-grid">
+                `;
+                
+                products.slice(0, 6).forEach(product => {
+                    const qty = parseInt(product.quantity || 0);
+                    const srp = parseFloat(product.srp || product.first_batch_srp || 0);
+                    const stockStatus = qty === 0 ? '🔴 Out of Stock' : qty <= 10 ? '🟡 Low Stock' : '🟢 In Stock';
+                    
+                    html += `
+                        <div class="product-card">
+                            <h4>${product.product_name}</h4>
+                            <div class="product-info">
+                                <strong>Barcode:</strong> ${product.barcode || 'N/A'}<br>
+                                <strong>Category:</strong> ${product.category_name || 'N/A'}<br>
+                                <strong>Brand:</strong> ${product.brand || 'N/A'}<br>
+                                <strong>Quantity:</strong> ${qty}<br>
+                                <strong>SRP:</strong> ₱${srp.toFixed(2)}<br>
+                                <strong>Status:</strong> ${stockStatus}<br>
+                                <strong>Supplier:</strong> ${product.supplier_name || 'N/A'}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+                
+                if (categories.length > 0) {
+                    html += `<h3>📁 Categories Found:</h3><div style="margin-bottom: 15px;">`;
+                    categories.forEach(cat => {
+                        html += `<span class="stats-badge">${cat}</span>`;
+                    });
+                    html += `</div>`;
+                }
+                
+                html += `<h3>Raw API Response:</h3><pre>${JSON.stringify(batchResult, null, 2)}</pre>`;
+                resultDiv.innerHTML = html;
+                
+            } else {
+                // Try to show products from all products endpoint filtered by pharmacy
+                if (backendResult.success && backendResult.data) {
+                    const pharmacyProducts = backendResult.data.filter(p => 
+                        p.location_name && p.location_name.toLowerCase().includes('pharmacy')
+                    );
+                    
+                    if (pharmacyProducts.length > 0) {
+                        updateStatus('pharmacy-products-status', true);
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-info">
+                                <strong>ℹ️ Found ${pharmacyProducts.length} pharmacy products from general endpoint</strong><br>
+                                Pharmacy-specific endpoint returned no data, but products exist in database
+                            </div>
+                            <pre>${JSON.stringify(pharmacyProducts.slice(0, 3), null, 2)}</pre>
+                        `;
+                    } else {
+                        updateStatus('pharmacy-products-status', false);
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-error">
+                                <strong>❌ No pharmacy products found</strong><br>
+                                The pharmacy may not have any products yet. Transfer products from warehouse to pharmacy.
+                            </div>
+                            <pre>${JSON.stringify(batchResult, null, 2)}</pre>
+                        `;
+                    }
+                } else {
+                    updateStatus('pharmacy-products-status', false);
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-error">
+                            <strong>❌ Failed to load pharmacy products</strong><br>
+                            ${batchResult.message || 'Unknown error'}
+                        </div>
+                        <pre>${JSON.stringify(batchResult, null, 2)}</pre>
+                    `;
+                }
+            }
+        }
+
+        async function testFIFOStock() {
+            console.log('📊 Testing FIFO Stock...');
+            const resultDiv = document.getElementById('fifo-stock-result');
+            resultDiv.innerHTML = '<div class="loading">Loading FIFO stock data...</div>';
+            
+            const result = await callAPI('backend.php', 'get_fifo_stock', {});
+            console.log('FIFO Stock Result:', result);
+            
+            if (result.success && result.data) {
+                updateStatus('fifo-stock-status', true);
+                const fifoData = result.data;
+                
+                const totalStock = fifoData.reduce((sum, f) => sum + parseInt(f.available_quantity || 0), 0);
+                const totalValue = fifoData.reduce((sum, f) => sum + (parseInt(f.available_quantity || 0) * parseFloat(f.srp || 0)), 0);
+                const totalBatches = fifoData.length;
+                const expiring = fifoData.filter(f => {
+                    if (!f.expiration_date) return false;
+                    const exp = new Date(f.expiration_date);
+                    const now = new Date();
+                    const days = (exp - now) / (1000 * 60 * 60 * 24);
+                    return days > 0 && days <= 30;
+                }).length;
+                
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>✅ FIFO Stock System Active!</strong><br>
+                        Found ${totalBatches} batches in FIFO stock tracking
+                    </div>
+                    
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <h3>${totalBatches}</h3>
+                            <p>Total Batches</p>
+                        </div>
+                        <div class="kpi-card">
+                            <h3>${totalStock}</h3>
+                            <p>Total Stock Units</p>
+                        </div>
+                        <div class="kpi-card">
+                            <h3>₱${totalValue.toLocaleString('en-US', {minimumFractionDigits: 2})}</h3>
+                            <p>Total FIFO Value</p>
+                        </div>
+                        <div class="kpi-card">
+                            <h3>${expiring}</h3>
+                            <p>Expiring Soon (30d)</p>
+                        </div>
+                    </div>
+                    
+                    <h3>Sample FIFO Batches (First 5):</h3>
+                    <pre>${JSON.stringify(fifoData.slice(0, 5), null, 2)}</pre>
+                `;
+            } else {
+                updateStatus('fifo-stock-status', false);
+                resultDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>❌ Failed to load FIFO stock</strong><br>
+                        ${result.message || 'Unknown error'}
+                    </div>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testPharmacyLocation() {
+            console.log('📍 Testing Pharmacy Location...');
+            const resultDiv = document.getElementById('location-result');
+            resultDiv.innerHTML = '<div class="loading">Loading location data...</div>';
+            
+            const result = await callAPI('backend.php', 'get_locations', {});
+            console.log('Locations Result:', result);
+            
+            if (result.success && result.data) {
+                const pharmacy = result.data.find(loc => loc.location_name.toLowerCase().includes('pharmacy'));
+                
+                if (pharmacy) {
+                    updateStatus('location-status', true);
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>✅ Pharmacy Location Found!</strong><br>
+                            Location ID: ${pharmacy.location_id}<br>
+                            Location Name: ${pharmacy.location_name}
+                        </div>
+                        
+                        <h3>All Locations:</h3>
+                        <div class="product-grid">
+                            ${result.data.map(loc => `
+                                <div class="product-card" style="${loc.location_name.toLowerCase().includes('pharmacy') ? 'border-left-color: #10b981; background: #d1fae5;' : ''}">
+                                    <h4>${loc.location_name}</h4>
+                                    <div class="product-info">
+                                        <strong>ID:</strong> ${loc.location_id}<br>
+                                        ${loc.location_name.toLowerCase().includes('pharmacy') ? '<strong>✅ PHARMACY LOCATION</strong>' : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <h3>Raw Response:</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                } else {
+                    updateStatus('location-status', false);
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-error">
+                            <strong>❌ Pharmacy location not found</strong><br>
+                            Please create a location with "Pharmacy" in its name
+                        </div>
+                        <h3>Available Locations:</h3>
+                        <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                    `;
+                }
+            } else {
+                updateStatus('location-status', false);
+                resultDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>❌ Failed to load locations</strong><br>
+                        ${result.message || 'Unknown error'}
+                    </div>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testDatabaseTables() {
+            console.log('💾 Testing Database Tables...');
+            const resultDiv = document.getElementById('database-result');
+            resultDiv.innerHTML = '<div class="loading">Checking database tables...</div>';
+            
+            // Test multiple key tables
+            const [productsResult, categoriesResult, suppliersResult] = await Promise.all([
+                callAPI('backend.php', 'get_products', {}),
+                callAPI('backend.php', 'get_categories', {}),
+                callAPI('backend.php', 'get_suppliers', {})
+            ]);
+            
+            let html = '<h3>Database Tables Status:</h3>';
+            let allSuccess = true;
+            
+            // Products table
+            if (productsResult.success) {
+                const pharmacyCount = productsResult.data.filter(p => 
+                    p.location_name && p.location_name.toLowerCase().includes('pharmacy')
+                ).length;
+                html += `
+                    <div class="alert alert-success">
+                        <strong>✅ tbl_product:</strong> ${productsResult.data.length} total products (${pharmacyCount} in pharmacy)
+                    </div>
+                `;
+            } else {
+                allSuccess = false;
+                html += `
+                    <div class="alert alert-error">
+                        <strong>❌ tbl_product:</strong> Failed to access
+                    </div>
+                `;
+            }
+            
+            // Categories table
+            if (categoriesResult.success) {
+                const categories = Array.isArray(categoriesResult) ? categoriesResult : categoriesResult.data || [];
+                html += `
+                    <div class="alert alert-success">
+                        <strong>✅ tbl_category:</strong> ${categories.length} categories found
+                    </div>
+                `;
+            } else {
+                allSuccess = false;
+                html += `
+                    <div class="alert alert-error">
+                        <strong>❌ tbl_category:</strong> Failed to access
+                    </div>
+                `;
+            }
+            
+            // Suppliers table
+            if (suppliersResult.success) {
+                const suppliers = Array.isArray(suppliersResult) ? suppliersResult : suppliersResult.data || [];
+                html += `
+                    <div class="alert alert-success">
+                        <strong>✅ tbl_supplier:</strong> ${suppliers.length} suppliers found
+                    </div>
+                `;
+            } else {
+                allSuccess = false;
+                html += `
+                    <div class="alert alert-error">
+                        <strong>❌ tbl_supplier:</strong> Failed to access
+                    </div>
+                `;
+            }
+            
+            updateStatus('database-status', allSuccess);
+            resultDiv.innerHTML = html;
+        }
+
+        async function testAllPharmacyData() {
+            console.log('🚀 Testing all pharmacy data...');
+            await testPharmacyLocation();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testDatabaseTables();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testFIFOStock();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testPharmacyProducts();
+            console.log('✅ All pharmacy tests completed!');
+        }
+
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            console.log('🎯 Page loaded. Running tests in 1 second...');
+            setTimeout(testAllPharmacyData, 1000);
+        });
+    </script>
+</body>
+</html>
+

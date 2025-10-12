@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy Setup Check</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        h1 {
+            color: #667eea;
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .step-card {
+            background: #f8f9fa;
+            padding: 25px;
+            margin: 20px 0;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+        }
+        .step-card h2 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin: 5px;
+        }
+        .status.success {
+            background: #10b981;
+            color: white;
+        }
+        .status.error {
+            background: #ef4444;
+            color: white;
+        }
+        .status.warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .status.info {
+            background: #3b82f6;
+            color: white;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .kpi-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            display: inline-block;
+            margin: 10px;
+            min-width: 200px;
+        }
+        .kpi-card h3 {
+            margin: 0;
+            color: #667eea;
+            font-size: 2.5em;
+        }
+        .kpi-card p {
+            margin: 10px 0 0 0;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .alert {
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            font-size: 1.1em;
+        }
+        .alert-success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+        .alert-error {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        .alert-warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            color: #92400e;
+        }
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.85em;
+        }
+        .product-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .product-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.5em;
+        }
+        .steps-guide {
+            background: #e0e7ff;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .steps-guide ol {
+            margin: 10px 0;
+            padding-left: 25px;
+        }
+        .steps-guide li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Pharmacy Setup Diagnostic</h1>
+        <p class="subtitle">Let's check why your pharmacy is empty and how to fix it</p>
+        
+        <button onclick="runFullDiagnostic()">🔍 Run Full Diagnostic</button>
+        <button onclick="location.reload()">🔃 Refresh Page</button>
+
+        <!-- Step 1: Check Warehouse -->
+        <div class="step-card">
+            <h2>📦 Step 1: Check Warehouse Products</h2>
+            <p>First, let's verify you have products in the warehouse to transfer</p>
+            <button onclick="checkWarehouseProducts()">Check Warehouse</button>
+            <div id="warehouse-result"></div>
+        </div>
+
+        <!-- Step 2: Check Pharmacy Location -->
+        <div class="step-card">
+            <h2>📍 Step 2: Check Pharmacy Location</h2>
+            <p>Verify that pharmacy location exists in the system</p>
+            <button onclick="checkPharmacyLocation()">Check Location</button>
+            <div id="location-result"></div>
+        </div>
+
+        <!-- Step 3: Check Pharmacy Products -->
+        <div class="step-card">
+            <h2>💊 Step 3: Check Pharmacy Products</h2>
+            <p>Check if any products have been transferred to pharmacy</p>
+            <button onclick="checkPharmacyProducts()">Check Pharmacy</button>
+            <div id="pharmacy-result"></div>
+        </div>
+
+        <!-- Step 4: Check Transfers -->
+        <div class="step-card">
+            <h2>🚚 Step 4: Check Transfer History</h2>
+            <p>Check if there are any transfers to pharmacy</p>
+            <button onclick="checkTransfers()">Check Transfers</button>
+            <div id="transfers-result"></div>
+        </div>
+
+        <!-- Solution Guide -->
+        <div class="step-card" style="background: #f0fdf4; border-left-color: #10b981;">
+            <h2>✅ How to Add Products to Pharmacy</h2>
+            <div class="steps-guide">
+                <h3>Follow these steps:</h3>
+                <ol>
+                    <li><strong>Go to Inventory/Warehouse Module</strong>
+                        <ul>
+                            <li>Navigate to: <code>http://localhost:3000/Inventory_Con</code></li>
+                            <li>Click on "Warehouse" tab</li>
+                        </ul>
+                    </li>
+                    <li><strong>Add Products to Warehouse (if empty)</strong>
+                        <ul>
+                            <li>Click "Add Product" button</li>
+                            <li>Fill in product details (name, barcode, category, SRP, quantity)</li>
+                            <li>Select supplier and set expiration date</li>
+                            <li>Save the product</li>
+                        </ul>
+                    </li>
+                    <li><strong>Transfer Products to Pharmacy</strong>
+                        <ul>
+                            <li>Go to "Inventory Transfer" tab</li>
+                            <li>Create a new transfer</li>
+                            <li>Source: <strong>Warehouse</strong></li>
+                            <li>Destination: <strong>Pharmacy</strong></li>
+                            <li>Select products and quantities to transfer</li>
+                            <li>Submit and approve the transfer</li>
+                        </ul>
+                    </li>
+                    <li><strong>Verify Transfer</strong>
+                        <ul>
+                            <li>Go to Admin → Pharmacy tab</li>
+                            <li>Products should now appear!</li>
+                            <li>Refresh this test page to verify</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost/caps2e2/Api';
+
+        async function callAPI(endpoint, action, data = {}) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...data })
+                });
+                return await response.json();
+            } catch (error) {
+                return { success: false, message: error.message };
+            }
+        }
+
+        async function checkWarehouseProducts() {
+            const resultDiv = document.getElementById('warehouse-result');
+            resultDiv.innerHTML = '<div class="loading">Checking warehouse...</div>';
+            
+            const result = await callAPI('backend.php', 'get_products', {});
+            console.log('Warehouse check:', result);
+            
+            if (result.success && result.data) {
+                const warehouseProducts = result.data.filter(p => 
+                    p.location_name && p.location_name.toLowerCase().includes('warehouse')
+                );
+                
+                const totalQuantity = warehouseProducts.reduce((sum, p) => sum + parseInt(p.quantity || 0), 0);
+                
+                if (warehouseProducts.length > 0) {
+                    let html = `
+                        <div class="alert alert-success">
+                            <strong>✅ Warehouse has products!</strong><br>
+                            Found ${warehouseProducts.length} products with ${totalQuantity} total units
+                        </div>
+                        <div style="margin: 15px 0;">
+                            <div class="kpi-card">
+                                <h3>${warehouseProducts.length}</h3>
+                                <p>Products in Warehouse</p>
+                            </div>
+                            <div class="kpi-card">
+                                <h3>${totalQuantity}</h3>
+                                <p>Total Stock Units</p>
+                            </div>
+                        </div>
+                        <h3>Sample Products (First 10):</h3>
+                        <div class="product-list">
+                    `;
+                    
+                    warehouseProducts.slice(0, 10).forEach(p => {
+                        html += `
+                            <div class="product-item">
+                                <strong>${p.product_name}</strong> - 
+                                Quantity: ${p.quantity || 0} - 
+                                Category: ${p.category_name || 'N/A'}
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                        </div>
+                        <div class="alert alert-info" style="margin-top: 15px;">
+                            <strong>✅ Ready to transfer!</strong><br>
+                            You can now transfer these products to Pharmacy using the Inventory Transfer module.
+                        </div>
+                    `;
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-warning">
+                            <strong>⚠️ Warehouse is empty!</strong><br>
+                            You need to add products to the warehouse first before transferring to pharmacy.
+                            <br><br>
+                            <strong>How to add products:</strong>
+                            <ol style="text-align: left; margin-top: 10px;">
+                                <li>Go to Inventory/Warehouse module</li>
+                                <li>Click "Add Product" button</li>
+                                <li>Fill in product details and save</li>
+                                <li>Then transfer products to Pharmacy</li>
+                            </ol>
+                        </div>
+                    `;
+                }
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>❌ Cannot access warehouse</strong><br>
+                        ${result.message || 'Unknown error'}
+                    </div>
+                `;
+            }
+        }
+
+        async function checkPharmacyLocation() {
+            const resultDiv = document.getElementById('location-result');
+            resultDiv.innerHTML = '<div class="loading">Checking location...</div>';
+            
+            const result = await callAPI('backend.php', 'get_locations', {});
+            console.log('Locations:', result);
+            
+            if (result.success && result.data) {
+                const pharmacy = result.data.find(loc => 
+                    loc.location_name.toLowerCase().includes('pharmacy')
+                );
+                
+                if (pharmacy) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>✅ Pharmacy location exists!</strong><br>
+                            Location ID: <strong>${pharmacy.location_id}</strong><br>
+                            Location Name: <strong>${pharmacy.location_name}</strong>
+                        </div>
+                        <div class="alert alert-info" style="margin-top: 10px;">
+                            You can now transfer products to this location.
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-error">
+                            <strong>❌ Pharmacy location not found!</strong><br>
+                            You need to create a location with "Pharmacy" in its name.
+                            <br><br>
+                            <strong>Available locations:</strong>
+                            <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>❌ Cannot access locations</strong><br>
+                        ${result.message || 'Unknown error'}
+                    </div>
+                `;
+            }
+        }
+
+        async function checkPharmacyProducts() {
+            const resultDiv = document.getElementById('pharmacy-result');
+            resultDiv.innerHTML = '<div class="loading">Checking pharmacy...</div>';
+            
+            const result = await callAPI('batch_tracking.php', 'get_pharmacy_products', {
+                location_name: 'pharmacy'
+            });
+            console.log('Pharmacy products:', result);
+            
+            if (result.success) {
+                if (result.data && result.data.length > 0) {
+                    const totalQty = result.data.reduce((sum, p) => sum + parseInt(p.quantity || 0), 0);
+                    
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>✅ Pharmacy has products!</strong><br>
+                            Found ${result.data.length} products with ${totalQty} total units
+                        </div>
+                        <div style="margin: 15px 0;">
+                            <div class="kpi-card">
+                                <h3>${result.data.length}</h3>
+                                <p>Products in Pharmacy</p>
+                            </div>
+                            <div class="kpi-card">
+                                <h3>${totalQty}</h3>
+                                <p>Total Stock Units</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-warning">
+                            <strong>⚠️ Pharmacy is empty (but API works!)</strong><br>
+                            The pharmacy location exists but has no products yet.
+                            <br><br>
+                            <strong>Next steps:</strong>
+                            <ol style="text-align: left; margin-top: 10px;">
+                                <li>Check if warehouse has products (Step 1)</li>
+                                <li>Transfer products from Warehouse to Pharmacy</li>
+                                <li>Use the Inventory Transfer module</li>
+                            </ol>
+                        </div>
+                        <span class="status success">API Working ✓</span>
+                        <span class="status warning">No Products Yet</span>
+                    `;
+                }
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>❌ API Error</strong><br>
+                        ${result.message || 'Unknown error'}
+                    </div>
+                `;
+            }
+        }
+
+        async function checkTransfers() {
+            const resultDiv = document.getElementById('transfers-result');
+            resultDiv.innerHTML = '<div class="loading">Checking transfers...</div>';
+            
+            const result = await callAPI('backend.php', 'get_transfers', {});
+            console.log('Transfers:', result);
+            
+            if (result.success && result.data) {
+                const pharmacyTransfers = result.data.filter(t => 
+                    (t.destination_location && t.destination_location.toLowerCase().includes('pharmacy')) ||
+                    (t.to_location && t.to_location.toLowerCase().includes('pharmacy'))
+                );
+                
+                if (pharmacyTransfers.length > 0) {
+                    const approved = pharmacyTransfers.filter(t => t.status === 'approved' || t.status === 'completed').length;
+                    const pending = pharmacyTransfers.filter(t => t.status === 'pending').length;
+                    
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>✅ Found ${pharmacyTransfers.length} transfers to Pharmacy</strong><br>
+                            Approved: ${approved} | Pending: ${pending}
+                        </div>
+                        <h3>Recent Transfers:</h3>
+                        <div class="product-list">
+                            ${pharmacyTransfers.slice(0, 10).map(t => `
+                                <div class="product-item">
+                                    <strong>Transfer #${t.transfer_header_id || t.transfer_id}</strong> - 
+                                    Status: ${t.status} - 
+                                    Date: ${t.transfer_date || t.created_at || 'N/A'}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-warning">
+                            <strong>⚠️ No transfers to Pharmacy found</strong><br>
+                            You haven't created any transfers to pharmacy yet.
+                            <br><br>
+                            <strong>Create a transfer:</strong>
+                            <ol style="text-align: left; margin-top: 10px;">
+                                <li>Go to Inventory Transfer module</li>
+                                <li>Click "Create Transfer" button</li>
+                                <li>Select Source: Warehouse</li>
+                                <li>Select Destination: Pharmacy</li>
+                                <li>Choose products and quantities</li>
+                                <li>Submit and approve</li>
+                            </ol>
+                        </div>
+                    `;
+                }
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>❌ Cannot access transfers</strong><br>
+                        ${result.message || 'Unknown error'}
+                    </div>
+                `;
+            }
+        }
+
+        async function runFullDiagnostic() {
+            console.log('Running full diagnostic...');
+            await checkWarehouseProducts();
+            await new Promise(r => setTimeout(r, 500));
+            await checkPharmacyLocation();
+            await new Promise(r => setTimeout(r, 500));
+            await checkPharmacyProducts();
+            await new Promise(r => setTimeout(r, 500));
+            await checkTransfers();
+            console.log('Diagnostic complete!');
+        }
+
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Running diagnostic in 1 second...');
+            setTimeout(runFullDiagnostic, 1000);
+        });
+    </script>
+</body>
+</html>
+

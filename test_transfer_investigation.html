@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transfer Investigation - Find Your Pharmacy Products</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .success {
+            background: #d1fae5;
+            border-left: 5px solid #10b981;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .error {
+            background: #fee2e2;
+            border-left: 5px solid #ef4444;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 5px solid #f59e0b;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .info {
+            background: #e0f2fe;
+            border-left: 5px solid #0ea5e9;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .transfer-card {
+            background: #f9fafb;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .product-card {
+            background: #f9fafb;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #10b981;
+        }
+        .location-card {
+            background: #f9fafb;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #f59e0b;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.85em;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.5em;
+            color: #667eea;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .kpi {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .kpi h2 {
+            margin: 0;
+            color: #667eea;
+            font-size: 2.5em;
+        }
+        .kpi p {
+            margin: 5px 0 0 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Transfer Investigation</h1>
+        <p class="subtitle">Let's find where your transferred products went!</p>
+        
+        <button onclick="investigateTransfers()">🔍 Investigate All Transfers</button>
+        <button onclick="checkLocations()">📍 Check Location Mapping</button>
+        <button onclick="findPharmacyProducts()">💊 Find Pharmacy Products</button>
+        <button onclick="location.reload()">🔃 Refresh</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost/caps2e2/Api';
+
+        async function api(endpoint, action, data = {}) {
+            try {
+                const response = await fetch(`${API_BASE}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...data })
+                });
+                return await response.json();
+            } catch (error) {
+                return { success: false, message: error.message };
+            }
+        }
+
+        async function investigateTransfers() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Investigating transfers...</div>';
+            
+            let html = '';
+            
+            // 1. Get all locations first
+            console.log('Getting locations...');
+            const locations = await api('backend.php', 'get_locations');
+            console.log('Locations:', locations);
+            
+            let locationMap = {};
+            if (locations.success && locations.data) {
+                locations.data.forEach(loc => {
+                    locationMap[loc.location_id] = loc.location_name;
+                });
+                
+                html += `
+                    <div class="info">
+                        <h2>📍 Location Mapping</h2>
+                        <p>Found ${locations.data.length} locations:</p>
+                        <div class="grid">
+                `;
+                
+                locations.data.forEach(loc => {
+                    html += `
+                        <div class="location-card">
+                            <h3>ID ${loc.location_id}: ${loc.location_name}</h3>
+                            <p><strong>Description:</strong> ${loc.description || 'N/A'}</p>
+                            <p><strong>Status:</strong> ${loc.status || 'active'}</p>
+                        </div>
+                    `;
+                });
+                
+                html += `</div></div>`;
+            }
+            
+            // 2. Get all transfer headers
+            console.log('Getting transfer headers...');
+            const transferHeaders = await api('backend.php', 'get_transfers');
+            console.log('Transfer headers:', transferHeaders);
+            
+            if (transferHeaders.success && transferHeaders.data) {
+                const approvedTransfers = transferHeaders.data.filter(t => t.status === 'approved');
+                
+                html += `
+                    <div class="success">
+                        <h2>📋 Transfer Summary</h2>
+                        <div class="grid">
+                            <div class="kpi">
+                                <h2>${transferHeaders.data.length}</h2>
+                                <p>Total Transfers</p>
+                            </div>
+                            <div class="kpi">
+                                <h2>${approvedTransfers.length}</h2>
+                                <p>Approved Transfers</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Show approved transfers
+                html += `<h3>✅ Approved Transfers (Your Data):</h3>`;
+                approvedTransfers.forEach(transfer => {
+                    const sourceName = locationMap[transfer.source_location_id] || `ID ${transfer.source_location_id}`;
+                    const destName = locationMap[transfer.destination_location_id] || `ID ${transfer.destination_location_id}`;
+                    
+                    html += `
+                        <div class="transfer-card">
+                            <h3>Transfer #${transfer.transfer_header_id}</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                                <div><strong>Date:</strong> ${transfer.date}</div>
+                                <div><strong>From:</strong> ${sourceName}</div>
+                                <div><strong>To:</strong> ${destName}</div>
+                                <div><strong>Status:</strong> ${transfer.status}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // Check which transfers go to pharmacy
+                const pharmacyTransfers = approvedTransfers.filter(t => {
+                    const destName = locationMap[t.destination_location_id] || '';
+                    return destName.toLowerCase().includes('pharmacy');
+                });
+                
+                if (pharmacyTransfers.length > 0) {
+                    html += `
+                        <div class="success">
+                            <h2>💊 Found ${pharmacyTransfers.length} Transfers to Pharmacy!</h2>
+                            <p>These transfers should have moved products to pharmacy.</p>
+                        </div>
+                    `;
+                    
+                    // Get detailed transfer data for pharmacy transfers
+                    for (const transfer of pharmacyTransfers) {
+                        console.log(`Getting details for transfer ${transfer.transfer_header_id}...`);
+                        const details = await api('backend.php', 'get_transferred_products_by_location', {
+                            location_id: transfer.destination_location_id
+                        });
+                        
+                        if (details.success && details.data && details.data.length > 0) {
+                            html += `
+                                <div class="success">
+                                    <h3>📦 Transfer #${transfer.transfer_header_id} - Products:</h3>
+                            `;
+                            
+                            details.data.forEach(product => {
+                                html += `
+                                    <div class="product-card">
+                                        <h4>${product.product_name}</h4>
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                                            <div><strong>Barcode:</strong> ${product.barcode}</div>
+                                            <div><strong>Transferred Qty:</strong> ${product.transferred_qty}</div>
+                                            <div><strong>SRP:</strong> ₱${product.srp}</div>
+                                            <div><strong>Source:</strong> ${product.source_location}</div>
+                                            <div><strong>Destination:</strong> ${product.destination_location}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            
+                            html += `</div>`;
+                        } else {
+                            html += `
+                                <div class="warning">
+                                    <h3>⚠️ Transfer #${transfer.transfer_header_id}</h3>
+                                    <p>No product details found. This might be the issue!</p>
+                                    <pre>${JSON.stringify(details, null, 2)}</pre>
+                                </div>
+                            `;
+                        }
+                    }
+                } else {
+                    html += `
+                        <div class="warning">
+                            <h2>⚠️ No Transfers Found to Pharmacy</h2>
+                            <p>Based on location mapping, none of your transfers went to a location named "Pharmacy".</p>
+                            <p><strong>Check:</strong> Your transfers went to locations: ${[...new Set(approvedTransfers.map(t => locationMap[t.destination_location_id]))].join(', ')}</p>
+                        </div>
+                    `;
+                }
+                
+                // Show raw data
+                html += `
+                    <details style="margin-top: 20px;">
+                        <summary style="cursor: pointer; padding: 10px; background: #f3f4f6; border-radius: 5px;">
+                            🔍 Show Raw Transfer Data (Click to expand)
+                        </summary>
+                        <h4>All Transfer Headers:</h4>
+                        <pre>${JSON.stringify(transferHeaders.data, null, 2)}</pre>
+                    </details>
+                `;
+                
+            } else {
+                html += `
+                    <div class="error">
+                        <h2>❌ Error Getting Transfers</h2>
+                        <p>${transferHeaders.message || 'Unknown error'}</p>
+                        <pre>${JSON.stringify(transferHeaders, null, 2)}</pre>
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        async function checkLocations() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Checking locations...</div>';
+            
+            const locations = await api('backend.php', 'get_locations');
+            
+            let html = `
+                <div class="info">
+                    <h2>📍 All Locations in System</h2>
+            `;
+            
+            if (locations.success && locations.data) {
+                html += `<p>Found ${locations.data.length} locations:</p>`;
+                
+                locations.data.forEach(loc => {
+                    const isPharmacy = loc.location_name.toLowerCase().includes('pharmacy');
+                    const cardClass = isPharmacy ? 'success' : 'location-card';
+                    
+                    html += `
+                        <div class="${cardClass}">
+                            <h3>${isPharmacy ? '💊 ' : ''}ID ${loc.location_id}: ${loc.location_name}</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                                <div><strong>Description:</strong> ${loc.description || 'N/A'}</div>
+                                <div><strong>Status:</strong> ${loc.status || 'active'}</div>
+                                <div><strong>Created:</strong> ${loc.created_at || 'N/A'}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                const pharmacyLocations = locations.data.filter(loc => 
+                    loc.location_name.toLowerCase().includes('pharmacy')
+                );
+                
+                if (pharmacyLocations.length > 0) {
+                    html += `
+                        <div class="success">
+                            <h3>✅ Found ${pharmacyLocations.length} Pharmacy Location(s):</h3>
+                            <p>Location IDs: ${pharmacyLocations.map(p => p.location_id).join(', ')}</p>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="warning">
+                            <h3>⚠️ No Pharmacy Location Found</h3>
+                            <p>None of your locations contain "pharmacy" in the name.</p>
+                            <p>This might be why products aren't showing in pharmacy dashboard!</p>
+                        </div>
+                    `;
+                }
+            } else {
+                html += `<div class="error">Error: ${locations.message}</div>`;
+            }
+            
+            html += `</div>`;
+            resultsDiv.innerHTML = html;
+        }
+
+        async function findPharmacyProducts() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Finding pharmacy products...</div>';
+            
+            let html = '';
+            
+            // First get locations to find pharmacy ID
+            const locations = await api('backend.php', 'get_locations');
+            let pharmacyLocationId = null;
+            
+            if (locations.success && locations.data) {
+                const pharmacyLoc = locations.data.find(loc => 
+                    loc.location_name.toLowerCase().includes('pharmacy')
+                );
+                
+                if (pharmacyLoc) {
+                    pharmacyLocationId = pharmacyLoc.location_id;
+                    html += `
+                        <div class="info">
+                            <h2>💊 Pharmacy Location Found</h2>
+                            <p>ID: ${pharmacyLocationId} - ${pharmacyLoc.location_name}</p>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="warning">
+                            <h2>⚠️ No Pharmacy Location Found</h2>
+                            <p>Cannot find a location with "pharmacy" in the name.</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            if (pharmacyLocationId) {
+                // Try different methods to get pharmacy products
+                
+                // Method 1: Get products by location
+                console.log(`Getting products for pharmacy location ${pharmacyLocationId}...`);
+                const productsByLocation = await api('backend.php', 'get_products', {
+                    location_id: pharmacyLocationId
+                });
+                
+                // Method 2: Get transferred products
+                const transferredProducts = await api('backend.php', 'get_transferred_products_by_location', {
+                    location_id: pharmacyLocationId
+                });
+                
+                // Method 3: Get pharmacy products via batch tracking
+                const pharmacyProducts = await api('batch_tracking.php', 'get_pharmacy_products', {
+                    location_name: 'pharmacy',
+                    location_id: pharmacyLocationId
+                });
+                
+                html += `
+                    <div class="info">
+                        <h2>🔍 Search Results</h2>
+                        <h3>Method 1: Direct Location Query</h3>
+                `;
+                
+                if (productsByLocation.success && productsByLocation.data && productsByLocation.data.length > 0) {
+                    html += `
+                        <div class="success">
+                            <p>✅ Found ${productsByLocation.data.length} products in pharmacy location!</p>
+                        </div>
+                    `;
+                    
+                    productsByLocation.data.forEach(product => {
+                        html += `
+                            <div class="product-card">
+                                <h4>${product.product_name}</h4>
+                                <p>Quantity: ${product.quantity || 0}, SRP: ₱${product.srp || 0}</p>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `
+                        <div class="warning">
+                            <p>⚠️ No products found via direct location query</p>
+                            <pre>${JSON.stringify(productsByLocation, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                        <h3>Method 2: Transferred Products Query</h3>
+                `;
+                
+                if (transferredProducts.success && transferredProducts.data && transferredProducts.data.length > 0) {
+                    html += `
+                        <div class="success">
+                            <p>✅ Found ${transferredProducts.data.length} transferred products!</p>
+                        </div>
+                    `;
+                    
+                    transferredProducts.data.forEach(product => {
+                        html += `
+                            <div class="product-card">
+                                <h4>${product.product_name}</h4>
+                                <p>Transferred Qty: ${product.transferred_qty}, SRP: ₱${product.srp}</p>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `
+                        <div class="warning">
+                            <p>⚠️ No transferred products found</p>
+                            <pre>${JSON.stringify(transferredProducts, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                        <h3>Method 3: Pharmacy API Query</h3>
+                `;
+                
+                if (pharmacyProducts.success && pharmacyProducts.data && pharmacyProducts.data.length > 0) {
+                    html += `
+                        <div class="success">
+                            <p>✅ Found ${pharmacyProducts.data.length} products via pharmacy API!</p>
+                        </div>
+                    `;
+                    
+                    pharmacyProducts.data.forEach(product => {
+                        html += `
+                            <div class="product-card">
+                                <h4>${product.product_name}</h4>
+                                <p>Quantity: ${product.total_quantity || 0}, Status: ${product.stock_status}</p>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `
+                        <div class="warning">
+                            <p>⚠️ No products found via pharmacy API</p>
+                            <pre>${JSON.stringify(pharmacyProducts, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        // Auto-run investigation on load
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Starting investigation...');
+            setTimeout(investigateTransfers, 1000);
+        });
+    </script>
+</body>
+</html>

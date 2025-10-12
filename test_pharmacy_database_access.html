@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Pharmacy Database Access</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            border-left: 4px solid #667eea;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .warning { color: #ffc107; font-weight: bold; }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 11px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value { font-size: 32px; font-weight: bold; margin: 10px 0; }
+        .stat-label { font-size: 14px; opacity: 0.9; }
+        .method-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .method-fifo { background: #28a745; color: white; }
+        .method-batch { background: #17a2b8; color: white; }
+        .method-fallback { background: #ffc107; color: black; }
+        .method-error { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💊 Test Pharmacy Database Access</h1>
+        <p>Comprehensive test to ensure pharmacy data is properly fetched from the database</p>
+    </div>
+
+    <div class="test-section">
+        <h3>🎯 Test All Pharmacy Data Sources</h3>
+        <button onclick="testAllPharmacySources()">🚀 Test All Pharmacy Sources</button>
+        <div id="allPharmacyResults" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Individual Pharmacy API Tests</h3>
+        <button onclick="testPharmacyFIFO()">Test Pharmacy FIFO API</button>
+        <button onclick="testPharmacyBatch()">Test Pharmacy Batch API</button>
+        <button onclick="testPharmacyProducts()">Test Pharmacy Products</button>
+        <button onclick="testAllProductsFilter()">Test All Products Filter</button>
+        <div id="individualResult" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 Database Location Analysis</h3>
+        <button onclick="analyzeDatabaseLocations()">Analyze All Locations</button>
+        <div id="locationAnalysis" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 Pharmacy KPIs Calculation</h3>
+        <div id="pharmacyKPIs" class="stats"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost/caps2e2/Api';
+        let pharmacyData = {};
+
+        async function callAPI(endpoint, action, data = {}) {
+            const url = `${API_BASE_URL}/${endpoint}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, ...data })
+            });
+            return await response.json();
+        }
+
+        function showResult(elementId, content, status = 'info') {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.innerHTML = content;
+            if (status === 'success') {
+                el.style.borderLeftColor = '#28a745';
+            } else if (status === 'error') {
+                el.style.borderLeftColor = '#dc3545';
+            } else if (status === 'warning') {
+                el.style.borderLeftColor = '#ffc107';
+            }
+        }
+
+        async function testAllPharmacySources() {
+            showResult('allPharmacyResults', '<span class="warning">⏳ Testing all pharmacy data sources...</span>');
+            
+            const tests = [
+                {
+                    name: 'Pharmacy FIFO API',
+                    fn: () => callAPI('pharmacy_api.php', 'get_pharmacy_products_fifo', {
+                        location_name: 'pharmacy',
+                        search: '',
+                        category: 'all'
+                    }),
+                    badge: 'method-fifo'
+                },
+                {
+                    name: 'Pharmacy Batch API',
+                    fn: () => callAPI('batch_tracking.php', 'get_pharmacy_products', {}),
+                    badge: 'method-batch'
+                },
+                {
+                    name: 'Pharmacy Products API',
+                    fn: () => callAPI('pharmacy_api.php', 'get_products', {
+                        location_name: 'pharmacy',
+                        search: '',
+                        category: 'all'
+                    }),
+                    badge: 'method-fifo'
+                },
+                {
+                    name: 'All Products Fallback',
+                    fn: () => callAPI('backend.php', 'get_products', {}),
+                    badge: 'method-fallback'
+                }
+            ];
+
+            const results = await Promise.allSettled(tests.map(t => t.fn()));
+            
+            let summary = '<h4>📊 Pharmacy Data Sources Test Results</h4>';
+            let bestSource = null;
+            let maxProducts = 0;
+            
+            results.forEach((result, index) => {
+                const test = tests[index];
+                const badgeClass = test.badge;
+                
+                if (result.status === 'fulfilled' && result.value.success) {
+                    const products = result.value.data || [];
+                    const count = products.length;
+                    
+                    if (count > maxProducts) {
+                        maxProducts = count;
+                        bestSource = test.name;
+                    }
+                    
+                    summary += `
+                        <div style="margin: 10px 0; padding: 10px; background: #e8f5e8; border-radius: 6px;">
+                            <span class="success">✅ ${test.name}</span>
+                            <span class="method-badge ${badgeClass}">${count} products</span>
+                            <p style="margin: 5px 0; font-size: 14px;">
+                                <strong>Status:</strong> Success | 
+                                <strong>Products:</strong> ${count} | 
+                                <strong>Data Source:</strong> ${test.name}
+                            </p>
+                        </div>
+                    `;
+                    
+                    // Store data for KPI calculation
+                    if (test.name === 'Pharmacy FIFO API') {
+                        pharmacyData.fifo = products;
+                    } else if (test.name === 'All Products Fallback') {
+                        pharmacyData.all = products;
+                    }
+                } else {
+                    summary += `
+                        <div style="margin: 10px 0; padding: 10px; background: #ffeaea; border-radius: 6px;">
+                            <span class="error">❌ ${test.name}</span>
+                            <span class="method-badge method-error">Failed</span>
+                            <p style="margin: 5px 0; font-size: 14px; color: #dc3545;">
+                                <strong>Error:</strong> ${result.reason?.message || result.value?.message || 'Unknown error'}
+                            </p>
+                        </div>
+                    `;
+                }
+            });
+            
+            summary += `<div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 6px;">
+                <h4>🎯 Best Data Source</h4>
+                <p><strong>Recommended:</strong> ${bestSource} (${maxProducts} products)</p>
+                <p><strong>Status:</strong> ${maxProducts > 0 ? 'Pharmacy data found!' : 'No pharmacy data found'}</p>
+            </div>`;
+            
+            showResult('allPharmacyResults', summary, maxProducts > 0 ? 'success' : 'warning');
+            
+            // Calculate and display KPIs
+            calculatePharmacyKPIs();
+        }
+
+        async function testPharmacyFIFO() {
+            showResult('individualResult', '<span class="warning">⏳ Testing Pharmacy FIFO API...</span>');
+            try {
+                const result = await callAPI('pharmacy_api.php', 'get_pharmacy_products_fifo', {
+                    location_name: 'pharmacy',
+                    search: '',
+                    category: 'all'
+                });
+                
+                if (result.success) {
+                    const products = result.data || [];
+                    const lowStock = products.filter(p => {
+                        const qty = parseInt(p.quantity) || parseInt(p.total_quantity) || 0;
+                        return qty > 0 && qty <= 10;
+                    }).length;
+                    const expiringSoon = products.filter(p => {
+                        const expDate = p.expiration_date || p.expiration || p.transfer_expiration;
+                        if (!expDate) return false;
+                        const expiryDate = new Date(expDate);
+                        const thirtyDaysFromNow = new Date();
+                        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+                        return expiryDate <= thirtyDaysFromNow && expiryDate >= new Date();
+                    }).length;
+                    
+                    showResult('individualResult', `
+                        <span class="success">✅ Pharmacy FIFO API: ${products.length} products</span>
+                        <p><strong>Low Stock:</strong> ${lowStock} items</p>
+                        <p><strong>Expiring Soon:</strong> ${expiringSoon} items</p>
+                        <details>
+                            <summary>View Sample Data (Click to expand)</summary>
+                            <pre>${JSON.stringify(products.slice(0, 3), null, 2)}</pre>
+                        </details>
+                    `, 'success');
+                } else {
+                    showResult('individualResult', `<span class="error">❌ Failed: ${result.message}</span>`, 'error');
+                }
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testPharmacyBatch() {
+            showResult('individualResult', '<span class="warning">⏳ Testing Pharmacy Batch API...</span>');
+            try {
+                const result = await callAPI('batch_tracking.php', 'get_pharmacy_products', {});
+                
+                if (result.success) {
+                    const products = result.data || [];
+                    showResult('individualResult', `
+                        <span class="success">✅ Pharmacy Batch API: ${products.length} products</span>
+                        <details>
+                            <summary>View Sample Data (Click to expand)</summary>
+                            <pre>${JSON.stringify(products.slice(0, 3), null, 2)}</pre>
+                        </details>
+                    `, 'success');
+                } else {
+                    showResult('individualResult', `<span class="error">❌ Failed: ${result.message}</span>`, 'error');
+                }
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testPharmacyProducts() {
+            showResult('individualResult', '<span class="warning">⏳ Testing Pharmacy Products API...</span>');
+            try {
+                const result = await callAPI('pharmacy_api.php', 'get_products', {
+                    location_name: 'pharmacy',
+                    search: '',
+                    category: 'all'
+                });
+                
+                if (result.success) {
+                    const products = result.data || [];
+                    showResult('individualResult', `
+                        <span class="success">✅ Pharmacy Products API: ${products.length} products</span>
+                        <details>
+                            <summary>View Sample Data (Click to expand)</summary>
+                            <pre>${JSON.stringify(products.slice(0, 3), null, 2)}</pre>
+                        </details>
+                    `, 'success');
+                } else {
+                    showResult('individualResult', `<span class="error">❌ Failed: ${result.message}</span>`, 'error');
+                }
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testAllProductsFilter() {
+            showResult('individualResult', '<span class="warning">⏳ Testing All Products Filter...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_products', {});
+                
+                if (result.success) {
+                    const allProducts = result.data || [];
+                    const pharmacyProducts = allProducts.filter(p => 
+                        p.location_name && p.location_name.toLowerCase().includes('pharmacy')
+                    );
+                    const convenienceProducts = allProducts.filter(p => 
+                        p.location_name && p.location_name.toLowerCase().includes('convenience')
+                    );
+                    const warehouseProducts = allProducts.filter(p => 
+                        p.location_name && p.location_name.toLowerCase().includes('warehouse')
+                    );
+                    
+                    showResult('individualResult', `
+                        <span class="success">✅ All Products Filter: ${allProducts.length} total products</span>
+                        <p><strong>Pharmacy Products:</strong> ${pharmacyProducts.length}</p>
+                        <p><strong>Convenience Products:</strong> ${convenienceProducts.length}</p>
+                        <p><strong>Warehouse Products:</strong> ${warehouseProducts.length}</p>
+                        <details>
+                            <summary>View Location Breakdown (Click to expand)</summary>
+                            <pre>${JSON.stringify(allProducts.reduce((acc, p) => {
+                                const loc = p.location_name || 'Unknown';
+                                acc[loc] = (acc[loc] || 0) + 1;
+                                return acc;
+                            }, {}), null, 2)}</pre>
+                        </details>
+                    `, 'success');
+                } else {
+                    showResult('individualResult', `<span class="error">❌ Failed: ${result.message}</span>`, 'error');
+                }
+            } catch (error) {
+                showResult('individualResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function analyzeDatabaseLocations() {
+            showResult('locationAnalysis', '<span class="warning">⏳ Analyzing database locations...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_locations', {});
+                
+                if (result.success) {
+                    const locations = result.data || [];
+                    const locationNames = locations.map(l => l.location_name);
+                    
+                    // Check for pharmacy-related locations
+                    const pharmacyLocations = locations.filter(l => 
+                        l.location_name.toLowerCase().includes('pharmacy')
+                    );
+                    
+                    showResult('locationAnalysis', `
+                        <span class="success">✅ Found ${locations.length} locations in database</span>
+                        <p><strong>All Locations:</strong> ${locationNames.join(', ')}</p>
+                        <p><strong>Pharmacy Locations:</strong> ${pharmacyLocations.length}</p>
+                        ${pharmacyLocations.length > 0 ? 
+                            `<p><strong>Pharmacy Location Names:</strong> ${pharmacyLocations.map(l => l.location_name).join(', ')}</p>` :
+                            '<p class="warning">⚠️ No pharmacy-specific locations found</p>'
+                        }
+                        <details>
+                            <summary>View All Location Data (Click to expand)</summary>
+                            <pre>${JSON.stringify(locations, null, 2)}</pre>
+                        </details>
+                    `, 'success');
+                } else {
+                    showResult('locationAnalysis', `<span class="error">❌ Failed: ${result.message}</span>`, 'error');
+                }
+            } catch (error) {
+                showResult('locationAnalysis', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        function calculatePharmacyKPIs() {
+            const products = pharmacyData.fifo || pharmacyData.all || [];
+            const pharmacyProducts = pharmacyData.all ? 
+                pharmacyData.all.filter(p => p.location_name && p.location_name.toLowerCase().includes('pharmacy')) :
+                products;
+            
+            const totalProducts = pharmacyProducts.length;
+            const lowStock = pharmacyProducts.filter(p => {
+                const qty = parseInt(p.quantity) || parseInt(p.total_quantity) || 0;
+                return qty > 0 && qty <= 10;
+            }).length;
+            const expiringSoon = pharmacyProducts.filter(p => {
+                const expDate = p.expiration_date || p.expiration || p.transfer_expiration;
+                if (!expDate) return false;
+                const expiryDate = new Date(expDate);
+                const thirtyDaysFromNow = new Date();
+                thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+                return expiryDate <= thirtyDaysFromNow && expiryDate >= new Date();
+            }).length;
+            const totalValue = pharmacyProducts.reduce((sum, p) => {
+                const srp = parseFloat(p.srp) || parseFloat(p.unit_price) || parseFloat(p.transfer_srp) || 0;
+                const qty = parseInt(p.quantity) || parseInt(p.total_quantity) || 0;
+                return sum + (srp * qty);
+            }, 0);
+            
+            document.getElementById('pharmacyKPIs').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Total Products</div>
+                    <div class="stat-value">${totalProducts}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Low Stock Items</div>
+                    <div class="stat-value">${lowStock}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Expiring Soon</div>
+                    <div class="stat-value">${expiringSoon}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Value</div>
+                    <div class="stat-value">₱${totalValue.toLocaleString()}</div>
+                </div>
+            `;
+        }
+
+        // Auto-run on page load
+        window.onload = () => {
+            console.log('Pharmacy Database Access Test Page Loaded');
+            testAllPharmacySources();
+        };
+    </script>
+</body>
+</html>
+

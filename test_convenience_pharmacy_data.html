@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Convenience & Pharmacy Data</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            border-left: 4px solid #667eea;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value { font-size: 32px; font-weight: bold; margin: 10px 0; }
+        .stat-label { font-size: 14px; opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛒💊 Test Convenience Store & Pharmacy Data</h1>
+        <p>Test if we can fetch data from convenience store and pharmacy APIs</p>
+    </div>
+
+    <div class="test-section">
+        <h3>📍 Step 1: Check Available Locations</h3>
+        <button onclick="checkLocations()">Get All Locations</button>
+        <div id="locationsResult" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🛒 Step 2: Test Convenience Store API</h3>
+        <button onclick="testConvenienceAPI()">Get Convenience Products</button>
+        <div id="convenienceResult" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>💊 Step 3: Test Pharmacy API</h3>
+        <button onclick="testPharmacyAPI()">Get Pharmacy Products</button>
+        <div id="pharmacyResult" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Step 4: Test All Products (Fallback)</h3>
+        <button onclick="testAllProducts()">Get All Products</button>
+        <div id="allProductsResult" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 Summary</h3>
+        <div id="summary" class="stats"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost/caps2e2/Api';
+
+        async function callAPI(endpoint, action, data = {}) {
+            const url = `${API_BASE_URL}/${endpoint}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, ...data })
+            });
+            return await response.json();
+        }
+
+        function showResult(elementId, content, status = 'info') {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.innerHTML = content;
+            if (status === 'success') {
+                el.style.borderLeftColor = '#28a745';
+            } else if (status === 'error') {
+                el.style.borderLeftColor = '#dc3545';
+            }
+        }
+
+        async function checkLocations() {
+            showResult('locationsResult', '<span style="color: #ffc107;">⏳ Loading locations...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_locations');
+                if (result.success) {
+                    const locations = result.data || [];
+                    const locationNames = locations.map(l => l.location_name).join(', ');
+                    showResult('locationsResult', `
+                        <span class="success">✅ Found ${locations.length} locations</span>
+                        <p><strong>Location Names:</strong> ${locationNames}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `, 'success');
+                } else {
+                    showResult('locationsResult', `<span class="error">❌ Failed: ${result.message}</span>`, 'error');
+                }
+            } catch (error) {
+                showResult('locationsResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testConvenienceAPI() {
+            showResult('convenienceResult', '<span style="color: #ffc107;">⏳ Loading convenience products...</span>');
+            try {
+                const result = await callAPI('convenience_store_api.php', 'get_convenience_products_fifo', {
+                    location_name: 'convenience',
+                    search: '',
+                    category: 'all',
+                    product_type: 'all'
+                });
+                
+                if (result.success) {
+                    const products = result.data || [];
+                    const lowStock = products.filter(p => {
+                        const qty = parseInt(p.quantity) || 0;
+                        return qty > 0 && qty <= 10;
+                    }).length;
+                    const expiringSoon = products.filter(p => {
+                        if (!p.expiration_date) return false;
+                        const expiryDate = new Date(p.expiration_date);
+                        const thirtyDaysFromNow = new Date();
+                        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+                        return expiryDate <= thirtyDaysFromNow && expiryDate >= new Date();
+                    }).length;
+                    
+                    showResult('convenienceResult', `
+                        <span class="success">✅ Convenience Store: ${products.length} products found</span>
+                        <p><strong>Low Stock:</strong> ${lowStock} items</p>
+                        <p><strong>Expiring Soon:</strong> ${expiringSoon} items</p>
+                        <details>
+                            <summary>View Sample Data (Click to expand)</summary>
+                            <pre>${JSON.stringify(products.slice(0, 3), null, 2)}</pre>
+                        </details>
+                    `, 'success');
+                } else {
+                    showResult('convenienceResult', `<span class="error">❌ Failed: ${result.message}</span>`, 'error');
+                }
+            } catch (error) {
+                showResult('convenienceResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testPharmacyAPI() {
+            showResult('pharmacyResult', '<span style="color: #ffc107;">⏳ Loading pharmacy products...</span>');
+            try {
+                const result = await callAPI('pharmacy_api.php', 'get_pharmacy_products_fifo', {
+                    location_name: 'pharmacy',
+                    search: '',
+                    category: 'all'
+                });
+                
+                if (result.success) {
+                    const products = result.data || [];
+                    const lowStock = products.filter(p => {
+                        const qty = parseInt(p.quantity) || 0;
+                        return qty > 0 && qty <= 10;
+                    }).length;
+                    const expiringSoon = products.filter(p => {
+                        if (!p.expiration_date) return false;
+                        const expiryDate = new Date(p.expiration_date);
+                        const thirtyDaysFromNow = new Date();
+                        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+                        return expiryDate <= thirtyDaysFromNow && expiryDate >= new Date();
+                    }).length;
+                    
+                    showResult('pharmacyResult', `
+                        <span class="success">✅ Pharmacy: ${products.length} products found</span>
+                        <p><strong>Low Stock:</strong> ${lowStock} items</p>
+                        <p><strong>Expiring Soon:</strong> ${expiringSoon} items</p>
+                        <details>
+                            <summary>View Sample Data (Click to expand)</summary>
+                            <pre>${JSON.stringify(products.slice(0, 3), null, 2)}</pre>
+                        </details>
+                    `, 'success');
+                } else {
+                    showResult('pharmacyResult', `<span class="error">❌ Failed: ${result.message}</span>`, 'error');
+                }
+            } catch (error) {
+                showResult('pharmacyResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        async function testAllProducts() {
+            showResult('allProductsResult', '<span style="color: #ffc107;">⏳ Loading all products...</span>');
+            try {
+                const result = await callAPI('backend.php', 'get_products', {});
+                
+                if (result.success) {
+                    const products = result.data || [];
+                    const convenienceProducts = products.filter(p => 
+                        p.location_name && p.location_name.toLowerCase().includes('convenience')
+                    );
+                    const pharmacyProducts = products.filter(p => 
+                        p.location_name && p.location_name.toLowerCase().includes('pharmacy')
+                    );
+                    
+                    showResult('allProductsResult', `
+                        <span class="success">✅ All Products: ${products.length} total</span>
+                        <p><strong>Convenience Products:</strong> ${convenienceProducts.length}</p>
+                        <p><strong>Pharmacy Products:</strong> ${pharmacyProducts.length}</p>
+                        <p><strong>Warehouse Products:</strong> ${products.length - convenienceProducts.length - pharmacyProducts.length}</p>
+                        <details>
+                            <summary>View Location Breakdown (Click to expand)</summary>
+                            <pre>${JSON.stringify(products.reduce((acc, p) => {
+                                const loc = p.location_name || 'Unknown';
+                                acc[loc] = (acc[loc] || 0) + 1;
+                                return acc;
+                            }, {}), null, 2)}</pre>
+                        </details>
+                    `, 'success');
+                } else {
+                    showResult('allProductsResult', `<span class="error">❌ Failed: ${result.message}</span>`, 'error');
+                }
+            } catch (error) {
+                showResult('allProductsResult', `<span class="error">❌ Error: ${error.message}</span>`, 'error');
+            }
+        }
+
+        // Auto-run location check on page load
+        window.onload = () => {
+            console.log('Convenience & Pharmacy Data Test Page Loaded');
+            checkLocations();
+        };
+    </script>
+</body>
+</html>

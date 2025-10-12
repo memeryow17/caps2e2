@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast Moving Items Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .success {
+            background: #d1fae5;
+            border-left: 5px solid #10b981;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .error {
+            background: #fee2e2;
+            border-left: 5px solid #ef4444;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 5px solid #f59e0b;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .info {
+            background: #e0f2fe;
+            border-left: 5px solid #0ea5e9;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.85em;
+            max-height: 400px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.5em;
+            color: #667eea;
+        }
+        .trend-bar {
+            display: inline-block;
+            width: 20px;
+            margin: 0 2px;
+            vertical-align: bottom;
+            background-color: #10b981;
+            border-radius: 2px 2px 0 0;
+        }
+        .product-item {
+            background: #f9fafb;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 Fast Moving Items Debug</h1>
+        <p class="subtitle">Debugging the fast-moving items trend data and visualization</p>
+        
+        <button onclick="testFastMovingAPI()">🧪 Test Fast Moving API</button>
+        <button onclick="testStockMovements()">📊 Test Stock Movements</button>
+        <button onclick="simulateTrendData()">📈 Simulate Trend Data</button>
+        <button onclick="location.reload()">🔃 Refresh</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost/caps2e2/Api';
+
+        async function api(endpoint, action, data = {}) {
+            try {
+                const response = await fetch(`${API_BASE}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...data })
+                });
+                return await response.json();
+            } catch (error) {
+                return { success: false, message: error.message };
+            }
+        }
+
+        async function testFastMovingAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Testing fast moving items API...</div>';
+            
+            let html = '<div class="info"><h2>📈 Fast Moving Items API Test</h2>';
+            
+            // Test with different filters
+            const filters = [
+                { name: 'All Products (Monthly)', data: { timePeriod: 'monthly' } },
+                { name: 'All Products (Weekly)', data: { timePeriod: 'weekly' } },
+                { name: 'Warehouse Only', data: { location: 'Warehouse', timePeriod: 'monthly' } }
+            ];
+            
+            for (const filter of filters) {
+                console.log(`Testing ${filter.name}...`);
+                const result = await api('backend.php', 'get_fast_moving_items_trend', filter.data);
+                console.log(`${filter.name} result:`, result);
+                
+                html += `
+                    <div class="${result.success ? 'success' : 'warning'}">
+                        <h3>${result.success ? '✅' : '⚠️'} ${filter.name}</h3>
+                        <p>${result.success ? `Found ${result.data.length} data points` : result.message}</p>
+                `;
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    // Group by product
+                    const productGroups = {};
+                    result.data.forEach(item => {
+                        if (!productGroups[item.product]) {
+                            productGroups[item.product] = [];
+                        }
+                        productGroups[item.product].push(item);
+                    });
+                    
+                    const topProducts = Object.entries(productGroups)
+                        .map(([product, items]) => ({
+                            product,
+                            totalMovement: items.reduce((sum, item) => sum + (item.quantity || 0), 0),
+                            itemCount: items.length,
+                            items: items
+                        }))
+                        .sort((a, b) => b.totalMovement - a.totalMovement)
+                        .slice(0, 5);
+                    
+                    html += `
+                        <div class="info">
+                            <h4>📊 Top ${topProducts.length} Products:</h4>
+                    `;
+                    
+                    topProducts.forEach((product, index) => {
+                        html += `
+                            <div class="product-item">
+                                <h5>#${index + 1} ${product.product}</h5>
+                                <p><strong>Total Movement:</strong> ${product.totalMovement}</p>
+                                <p><strong>Data Points:</strong> ${product.itemCount}</p>
+                                <p><strong>Months/Periods:</strong> ${product.items.map(i => i.month).join(', ')}</p>
+                                
+                                <div style="margin-top: 10px;">
+                                    <strong>Monthly Breakdown:</strong><br>
+                        `;
+                        
+                        product.items.forEach(item => {
+                            const quantity = parseInt(item.quantity) || 0;
+                            const barHeight = Math.max(quantity / 10, 2); // Scale for visibility
+                            html += `
+                                <div style="display: inline-block; margin: 2px;">
+                                    <div class="trend-bar" style="height: ${barHeight}px;" title="${item.month}: ${quantity}"></div>
+                                    <div style="font-size: 10px; text-align: center;">${item.month}</div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += `</div></div>`;
+                    });
+                    
+                    html += `</div>`;
+                    
+                    // Show raw data
+                    html += `
+                        <details style="margin-top: 15px;">
+                            <summary style="cursor: pointer; padding: 10px; background: #f3f4f6; border-radius: 5px;">
+                                🔍 Show Raw Data (Click to expand)
+                            </summary>
+                            <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                        </details>
+                    `;
+                }
+                
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+
+        async function testStockMovements() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Testing stock movements data...</div>';
+            
+            let html = '<div class="info"><h2>📊 Stock Movements Test</h2>';
+            
+            // Test stock movements API
+            const movementsResult = await api('backend.php', 'get_stock_movements', { limit: 50 });
+            console.log('Stock movements result:', movementsResult);
+            
+            if (movementsResult.success && movementsResult.data) {
+                const movements = movementsResult.data;
+                const outMovements = movements.filter(m => m.movement_type === 'OUT');
+                
+                html += `
+                    <div class="success">
+                        <h3>✅ Stock Movements Data</h3>
+                        <p><strong>Total Movements:</strong> ${movements.length}</p>
+                        <p><strong>OUT Movements:</strong> ${outMovements.length}</p>
+                        <p><strong>Date Range:</strong> ${movements.length > 0 ? movements[0].movement_date : 'N/A'} to ${movements.length > 0 ? movements[movements.length - 1].movement_date : 'N/A'}</p>
+                    </div>
+                    
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Movement Type</th>
+                                <th>Quantity</th>
+                                <th>Date</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                outMovements.slice(0, 10).forEach(movement => {
+                    html += `
+                        <tr>
+                            <td>${movement.product_name || 'Unknown'}</td>
+                            <td>${movement.movement_type}</td>
+                            <td>${movement.quantity}</td>
+                            <td>${movement.movement_date}</td>
+                            <td>${movement.adjustment_reason || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `</tbody></table>`;
+                
+                if (outMovements.length > 10) {
+                    html += `<p>... and ${outMovements.length - 10} more movements</p>`;
+                }
+                
+            } else {
+                html += `
+                    <div class="error">
+                        <h3>❌ Error Getting Stock Movements</h3>
+                        <p>${movementsResult.message}</p>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+
+        async function simulateTrendData() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Simulating trend data...</div>';
+            
+            let html = '<div class="info"><h2>📈 Simulated Trend Data</h2>';
+            
+            // Simulate what the data should look like
+            const simulatedData = [
+                { product: 'Lady pills', month: 'May', quantity: 45 },
+                { product: 'Lady pills', month: 'Jun', quantity: 52 },
+                { product: 'Lady pills', month: 'Jul', quantity: 48 },
+                { product: 'Lady pills', month: 'Aug', quantity: 67 },
+                { product: 'Lady pills', month: 'Sep', quantity: 58 },
+                { product: 'Lady pills', month: 'Oct', quantity: 57 },
+                { product: 'Loperamide', month: 'May', quantity: 23 },
+                { product: 'Loperamide', month: 'Jun', quantity: 28 },
+                { product: 'Loperamide', month: 'Jul', quantity: 25 },
+                { product: 'Loperamide', month: 'Aug', quantity: 31 },
+                { product: 'Loperamide', month: 'Sep', quantity: 19 },
+                { product: 'Loperamide', month: 'Oct', quantity: 16 },
+                { product: 'Pinoy Spice', month: 'May', quantity: 18 },
+                { product: 'Pinoy Spice', month: 'Jun', quantity: 22 },
+                { product: 'Pinoy Spice', month: 'Jul', quantity: 20 },
+                { product: 'Pinoy Spice', month: 'Aug', quantity: 25 },
+                { product: 'Pinoy Spice', month: 'Sep', quantity: 17 },
+                { product: 'Pinoy Spice', month: 'Oct', quantity: 16 }
+            ];
+            
+            // Group by product
+            const productGroups = {};
+            simulatedData.forEach(item => {
+                if (!productGroups[item.product]) {
+                    productGroups[item.product] = [];
+                }
+                productGroups[item.product].push(item);
+            });
+            
+            const topProducts = Object.entries(productGroups)
+                .map(([product, items]) => ({
+                    product,
+                    totalMovement: items.reduce((sum, item) => sum + item.quantity, 0),
+                    items: items.sort((a, b) => {
+                        const monthOrder = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+                        return monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month);
+                    })
+                }))
+                .sort((a, b) => b.totalMovement - a.totalMovement)
+                .slice(0, 3);
+            
+            html += `
+                <div class="success">
+                    <h3>✅ Simulated Data Structure</h3>
+                    <p>This is what the fast-moving items data should look like:</p>
+                </div>
+            `;
+            
+            topProducts.forEach((product, index) => {
+                html += `
+                    <div class="product-item">
+                        <h5>#${index + 1} ${product.product}</h5>
+                        <p><strong>Total Movement:</strong> ${product.totalMovement}</p>
+                        
+                        <div style="margin-top: 10px;">
+                            <strong>Monthly Trend:</strong><br>
+                `;
+                
+                const maxMovement = Math.max(...topProducts.map(p => p.totalMovement));
+                
+                product.items.forEach(item => {
+                    const barHeight = Math.max((item.quantity / maxMovement) * 100, 5);
+                    html += `
+                        <div style="display: inline-block; margin: 2px;">
+                            <div class="trend-bar" style="height: ${barHeight}px;" title="${item.month}: ${item.quantity}"></div>
+                            <div style="font-size: 10px; text-align: center;">${item.month}</div>
+                            <div style="font-size: 9px; text-align: center;">${item.quantity}</div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div></div>`;
+            });
+            
+            html += `
+                <div class="warning">
+                    <h3>🔧 Expected Fix</h3>
+                    <p>The fast-moving items chart should show:</p>
+                    <ul>
+                        <li>✅ Proper monthly data with quantities</li>
+                        <li>✅ Chronological month order (May → Oct)</li>
+                        <li>✅ Visual trend bars for each month</li>
+                        <li>✅ Correct total movement calculations</li>
+                    </ul>
+                </div>
+            `;
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+
+        // Auto-run test on load
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Running fast moving items test...');
+            setTimeout(testFastMovingAPI, 1000);
+        });
+    </script>
+</body>
+</html>

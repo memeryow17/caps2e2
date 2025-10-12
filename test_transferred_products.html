@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Transferred Products</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .success {
+            background: #d1fae5;
+            border-left: 5px solid #10b981;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .error {
+            background: #fee2e2;
+            border-left: 5px solid #ef4444;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 5px solid #f59e0b;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .product-card {
+            background: #f9fafb;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .product-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .product-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .info-item {
+            font-size: 0.9em;
+        }
+        .info-item strong {
+            color: #667eea;
+        }
+        .kpi {
+            display: inline-block;
+            background: white;
+            padding: 20px;
+            margin: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            min-width: 150px;
+        }
+        .kpi h2 {
+            margin: 0;
+            color: #667eea;
+            font-size: 2.5em;
+        }
+        .kpi p {
+            margin: 5px 0 0 0;
+            color: #666;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.85em;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.5em;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Transferred Products Check</h1>
+        <p class="subtitle">Let's find your transferred products!</p>
+        
+        <button onclick="checkEverything()">🔄 Check All Sources</button>
+        <button onclick="location.reload()">🔃 Refresh</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost/caps2e2/Api';
+
+        async function api(endpoint, action, data = {}) {
+            try {
+                const response = await fetch(`${API_BASE}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...data })
+                });
+                return await response.json();
+            } catch (error) {
+                return { success: false, message: error.message };
+            }
+        }
+
+        async function checkEverything() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Checking all data sources...</div>';
+            
+            let html = '';
+            
+            // 1. Check ALL products in database
+            console.log('1. Checking all products...');
+            const allProducts = await api('backend.php', 'get_products', {});
+            console.log('All products:', allProducts);
+            
+            if (allProducts.success && allProducts.data) {
+                const total = allProducts.data.length;
+                const warehouseProducts = allProducts.data.filter(p => 
+                    p.location_name && p.location_name.toLowerCase().includes('warehouse')
+                );
+                const pharmacyProducts = allProducts.data.filter(p => 
+                    p.location_name && p.location_name.toLowerCase().includes('pharmacy')
+                );
+                const convenienceProducts = allProducts.data.filter(p => 
+                    p.location_name && p.location_name.toLowerCase().includes('convenience')
+                );
+                
+                html += `
+                    <div class="success">
+                        <h2>✅ Database Query Fixed!</h2>
+                        <p>Successfully retrieved ${total} products from database</p>
+                    </div>
+                    
+                    <div style="margin: 20px 0;">
+                        <div class="kpi">
+                            <h2>${total}</h2>
+                            <p>Total Products</p>
+                        </div>
+                        <div class="kpi">
+                            <h2>${warehouseProducts.length}</h2>
+                            <p>In Warehouse</p>
+                        </div>
+                        <div class="kpi">
+                            <h2>${pharmacyProducts.length}</h2>
+                            <p>In Pharmacy</p>
+                        </div>
+                        <div class="kpi">
+                            <h2>${convenienceProducts.length}</h2>
+                            <p>In Convenience</p>
+                        </div>
+                    </div>
+                `;
+                
+                // Show pharmacy products
+                if (pharmacyProducts.length > 0) {
+                    html += `
+                        <div class="success">
+                            <h2>🎉 Found ${pharmacyProducts.length} Products in Pharmacy!</h2>
+                            <p>Your transferred products are here!</p>
+                        </div>
+                        <h3>Pharmacy Products:</h3>
+                    `;
+                    
+                    pharmacyProducts.forEach(product => {
+                        const qty = parseInt(product.quantity || 0);
+                        const srp = parseFloat(product.srp || 0);
+                        
+                        html += `
+                            <div class="product-card">
+                                <h3>${product.product_name}</h3>
+                                <div class="product-info">
+                                    <div class="info-item">
+                                        <strong>Barcode:</strong> ${product.barcode || 'N/A'}
+                                    </div>
+                                    <div class="info-item">
+                                        <strong>Category:</strong> ${product.category_name || 'N/A'}
+                                    </div>
+                                    <div class="info-item">
+                                        <strong>Quantity:</strong> <span style="color: ${qty > 0 ? '#10b981' : '#ef4444'}; font-weight: bold;">${qty}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <strong>SRP:</strong> ₱${srp.toFixed(2)}
+                                    </div>
+                                    <div class="info-item">
+                                        <strong>Location:</strong> ${product.location_name}
+                                    </div>
+                                    <div class="info-item">
+                                        <strong>Status:</strong> ${product.stock_status || 'active'}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `
+                        <div class="warning">
+                            <h2>⚠️ No products found in Pharmacy</h2>
+                            <p>Products might be in warehouse. Check warehouse products below:</p>
+                        </div>
+                    `;
+                    
+                    if (warehouseProducts.length > 0) {
+                        html += `
+                            <h3>Warehouse Products (Available to Transfer):</h3>
+                        `;
+                        warehouseProducts.slice(0, 5).forEach(product => {
+                            html += `
+                                <div class="product-card" style="border-left-color: #f59e0b;">
+                                    <h3>${product.product_name}</h3>
+                                    <div class="product-info">
+                                        <div class="info-item">
+                                            <strong>Quantity:</strong> ${product.quantity || 0}
+                                        </div>
+                                        <div class="info-item">
+                                            <strong>Location:</strong> ${product.location_name}
+                                        </div>
+                                        <div class="info-item">
+                                            <strong>Status:</strong> Ready to transfer
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += `
+                            <div class="warning">
+                                <h3>💡 How to transfer these products:</h3>
+                                <ol>
+                                    <li>Go to <code>http://localhost:3000/Inventory_Con</code></li>
+                                    <li>Click "Inventory Transfer" tab</li>
+                                    <li>Create new transfer</li>
+                                    <li>Source: <strong>Warehouse</strong></li>
+                                    <li>Destination: <strong>Pharmacy</strong></li>
+                                    <li>Select products and submit</li>
+                                    <li>Approve the transfer</li>
+                                </ol>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="error">
+                                <h3>❌ Warehouse is also empty!</h3>
+                                <p>You need to add products to warehouse first.</p>
+                                <p><strong>Go to:</strong> Inventory/Warehouse → Add Product</p>
+                            </div>
+                        `;
+                    }
+                }
+                
+                // Show raw data for debugging
+                html += `
+                    <details style="margin-top: 20px;">
+                        <summary style="cursor: pointer; padding: 10px; background: #f3f4f6; border-radius: 5px;">
+                            🔍 Show Raw Data (Click to expand)
+                        </summary>
+                        <h4>Pharmacy Products Raw Data:</h4>
+                        <pre>${JSON.stringify(pharmacyProducts, null, 2)}</pre>
+                        <h4>All Products Raw Data (First 5):</h4>
+                        <pre>${JSON.stringify(allProducts.data.slice(0, 5), null, 2)}</pre>
+                    </details>
+                `;
+                
+            } else {
+                html += `
+                    <div class="error">
+                        <h2>❌ Error</h2>
+                        <p>${allProducts.message || 'Unknown error'}</p>
+                        <pre>${JSON.stringify(allProducts, null, 2)}</pre>
+                    </div>
+                `;
+            }
+            
+            // 2. Check pharmacy-specific API
+            console.log('2. Checking pharmacy API...');
+            const pharmacyAPI = await api('batch_tracking.php', 'get_pharmacy_products', {
+                location_name: 'pharmacy'
+            });
+            console.log('Pharmacy API:', pharmacyAPI);
+            
+            html += `<hr style="margin: 30px 0;">`;
+            html += `<h2>Pharmacy API Check:</h2>`;
+            
+            if (pharmacyAPI.success && pharmacyAPI.data && pharmacyAPI.data.length > 0) {
+                html += `
+                    <div class="success">
+                        <h3>✅ Pharmacy API working!</h3>
+                        <p>Found ${pharmacyAPI.data.length} products via pharmacy API</p>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="warning">
+                        <h3>⚠️ Pharmacy API returned empty</h3>
+                        <p>This means products aren't properly linked to pharmacy location in the database.</p>
+                        <p><strong>Check:</strong> Products must have location_id pointing to Pharmacy</p>
+                    </div>
+                    <pre>${JSON.stringify(pharmacyAPI, null, 2)}</pre>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Running checks...');
+            setTimeout(checkEverything, 1000);
+        });
+    </script>
+</body>
+</html>
+

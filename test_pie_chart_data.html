@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pie Chart Data Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .success {
+            background: #d1fae5;
+            border-left: 5px solid #10b981;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .error {
+            background: #fee2e2;
+            border-left: 5px solid #ef4444;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 5px solid #f59e0b;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .info {
+            background: #e0f2fe;
+            border-left: 5px solid #0ea5e9;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.85em;
+            max-height: 400px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.5em;
+            color: #667eea;
+        }
+        .calculation {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Pie Chart Data Debug</h1>
+        <p class="subtitle">Debugging the stock distribution by category data and calculations</p>
+        
+        <button onclick="testStockDistributionAPI()">🧪 Test Stock Distribution API</button>
+        <button onclick="testRawProductData()">📊 Test Raw Product Data</button>
+        <button onclick="simulatePieChartCalculation()">🥧 Simulate Pie Chart Calculation</button>
+        <button onclick="location.reload()">🔃 Refresh</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost/caps2e2/Api';
+
+        async function api(endpoint, action, data = {}) {
+            try {
+                const response = await fetch(`${API_BASE}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...data })
+                });
+                return await response.json();
+            } catch (error) {
+                return { success: false, message: error.message };
+            }
+        }
+
+        async function testStockDistributionAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Testing stock distribution API...</div>';
+            
+            let html = '<div class="info"><h2>🧪 Stock Distribution API Test</h2>';
+            
+            // Test the API with different filters
+            const filters = [
+                { name: 'All Products', data: {} },
+                { name: 'Warehouse Only', data: { location: 'Warehouse' } },
+                { name: 'Pharmacy Only', data: { location: 'Pharmacy' } }
+            ];
+            
+            for (const filter of filters) {
+                console.log(`Testing ${filter.name}...`);
+                const result = await api('backend.php', 'get_stock_distribution_by_category', filter.data);
+                console.log(`${filter.name} result:`, result);
+                
+                html += `
+                    <div class="${result.success ? 'success' : 'warning'}">
+                        <h3>${result.success ? '✅' : '⚠️'} ${filter.name}</h3>
+                        <p>${result.success ? `Found ${result.data.length} categories` : result.message}</p>
+                `;
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    // Calculate totals
+                    const totalQuantity = result.data.reduce((sum, item) => {
+                        return sum + (parseInt(item.quantity) || 0);
+                    }, 0);
+                    
+                    html += `
+                        <div class="calculation">
+                            <h4>📊 Calculation Results:</h4>
+                            <p><strong>Total Quantity:</strong> ${totalQuantity.toLocaleString()}</p>
+                            <p><strong>Categories:</strong> ${result.data.length}</p>
+                        </div>
+                        
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Quantity</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    result.data.forEach(item => {
+                        const qty = parseInt(item.quantity) || 0;
+                        const percentage = totalQuantity > 0 ? ((qty / totalQuantity) * 100).toFixed(1) : 0;
+                        html += `
+                            <tr>
+                                <td>${item.category}</td>
+                                <td>${qty.toLocaleString()}</td>
+                                <td>${percentage}%</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `</tbody></table>`;
+                    
+                    // Show raw data
+                    html += `
+                        <details style="margin-top: 15px;">
+                            <summary style="cursor: pointer; padding: 10px; background: #f3f4f6; border-radius: 5px;">
+                                🔍 Show Raw Data (Click to expand)
+                            </summary>
+                            <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                        </details>
+                    `;
+                }
+                
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+
+        async function testRawProductData() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Testing raw product data...</div>';
+            
+            let html = '<div class="info"><h2>📊 Raw Product Data Test</h2>';
+            
+            // Get all products
+            const allProducts = await api('backend.php', 'get_products', {});
+            console.log('All products result:', allProducts);
+            
+            if (allProducts.success && allProducts.data) {
+                const products = allProducts.data;
+                
+                // Group by category
+                const categoryGroups = {};
+                products.forEach(product => {
+                    const category = product.category_name || 'Unknown';
+                    const quantity = parseInt(product.quantity) || 0;
+                    
+                    if (!categoryGroups[category]) {
+                        categoryGroups[category] = {
+                            category,
+                            totalQuantity: 0,
+                            productCount: 0,
+                            products: []
+                        };
+                    }
+                    
+                    categoryGroups[category].totalQuantity += quantity;
+                    categoryGroups[category].productCount += 1;
+                    categoryGroups[category].products.push({
+                        name: product.product_name,
+                        quantity: quantity
+                    });
+                });
+                
+                const categories = Object.values(categoryGroups);
+                const totalQuantity = categories.reduce((sum, cat) => sum + cat.totalQuantity, 0);
+                
+                html += `
+                    <div class="success">
+                        <h3>✅ Product Analysis</h3>
+                        <p><strong>Total Products:</strong> ${products.length}</p>
+                        <p><strong>Total Quantity:</strong> ${totalQuantity.toLocaleString()}</p>
+                        <p><strong>Categories:</strong> ${categories.length}</p>
+                    </div>
+                    
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Product Count</th>
+                                <th>Total Quantity</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                categories.forEach(cat => {
+                    const percentage = totalQuantity > 0 ? ((cat.totalQuantity / totalQuantity) * 100).toFixed(1) : 0;
+                    html += `
+                        <tr>
+                            <td>${cat.category}</td>
+                            <td>${cat.productCount}</td>
+                            <td>${cat.totalQuantity.toLocaleString()}</td>
+                            <td>${percentage}%</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `</tbody></table>`;
+                
+                // Show sample products for each category
+                html += '<h3>📋 Sample Products by Category:</h3>';
+                categories.slice(0, 5).forEach(cat => {
+                    html += `
+                        <div class="calculation">
+                            <h4>${cat.category} (${cat.productCount} products, ${cat.totalQuantity.toLocaleString()} total)</h4>
+                            <ul>
+                    `;
+                    cat.products.slice(0, 3).forEach(product => {
+                        html += `<li>${product.name}: ${product.quantity.toLocaleString()}</li>`;
+                    });
+                    if (cat.products.length > 3) {
+                        html += `<li>... and ${cat.products.length - 3} more</li>`;
+                    }
+                    html += `</ul></div>`;
+                });
+                
+            } else {
+                html += `
+                    <div class="error">
+                        <h3>❌ Error Getting Products</h3>
+                        <p>${allProducts.message}</p>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+
+        async function simulatePieChartCalculation() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Simulating pie chart calculation...</div>';
+            
+            // Get the stock distribution data
+            const result = await api('backend.php', 'get_stock_distribution_by_category', {});
+            
+            let html = '<div class="info"><h2>🥧 Pie Chart Calculation Simulation</h2>';
+            
+            if (result.success && result.data) {
+                const data = result.data;
+                
+                // Simulate the exact calculation from the Dashboard
+                const totalQuantity = data.reduce((sum, d) => {
+                    const qty = parseInt(d.quantity) || parseInt(d.total_quantity) || 0;
+                    return sum + qty;
+                }, 0);
+                
+                html += `
+                    <div class="calculation">
+                        <h3>📊 Calculation Steps:</h3>
+                        <p><strong>1. Data Items:</strong> ${data.length}</p>
+                        <p><strong>2. Total Quantity:</strong> ${totalQuantity.toLocaleString()}</p>
+                        <p><strong>3. Calculation Method:</strong> sum of parseInt(quantity) || parseInt(total_quantity) || 0</p>
+                    </div>
+                `;
+                
+                html += `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Raw Quantity</th>
+                                <th>Parsed Quantity</th>
+                                <th>Percentage</th>
+                                <th>Pie Slice (deg)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                let cumulativeRotation = 0;
+                data.forEach((item, index) => {
+                    const itemQuantity = parseInt(item.quantity) || parseInt(item.total_quantity) || 0;
+                    const percentage = totalQuantity > 0 ? (itemQuantity / totalQuantity) * 100 : 0;
+                    const pieSliceDegrees = percentage * 3.6; // 360 degrees / 100%
+                    
+                    html += `
+                        <tr>
+                            <td>${item.category || item.category_name || 'Unknown'}</td>
+                            <td>${item.quantity || item.total_quantity || 0}</td>
+                            <td>${itemQuantity}</td>
+                            <td>${percentage.toFixed(1)}%</td>
+                            <td>${pieSliceDegrees.toFixed(1)}°</td>
+                        </tr>
+                    `;
+                    
+                    cumulativeRotation += pieSliceDegrees;
+                });
+                
+                html += `</tbody></table>`;
+                
+                html += `
+                    <div class="calculation">
+                        <h3>🎯 Results:</h3>
+                        <p><strong>Total Percentage:</strong> ${data.reduce((sum, item) => {
+                            const qty = parseInt(item.quantity) || parseInt(item.total_quantity) || 0;
+                            return sum + (totalQuantity > 0 ? (qty / totalQuantity) * 100 : 0);
+                        }, 0).toFixed(1)}%</p>
+                        <p><strong>Total Degrees:</strong> ${cumulativeRotation.toFixed(1)}°</p>
+                        <p><strong>Expected:</strong> 100% = 360°</p>
+                    </div>
+                `;
+                
+                if (Math.abs(cumulativeRotation - 360) > 1) {
+                    html += `
+                        <div class="warning">
+                            <h3>⚠️ Calculation Issue Detected!</h3>
+                            <p>The total degrees (${cumulativeRotation.toFixed(1)}°) doesn't equal 360°</p>
+                            <p>This could cause incorrect pie chart rendering.</p>
+                        </div>
+                    `;
+                }
+                
+            } else {
+                html += `
+                    <div class="error">
+                        <h3>❌ Error Getting Data</h3>
+                        <p>${result.message}</p>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+
+        // Auto-run test on load
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Running stock distribution test...');
+            setTimeout(testStockDistributionAPI, 1000);
+        });
+    </script>
+</body>
+</html>

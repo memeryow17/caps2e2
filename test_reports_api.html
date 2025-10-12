@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Reports API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .info {
+            background-color: #e7f3ff;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Reports API</h1>
+        
+        <div class="info">
+            <strong>Note:</strong> This test page will call the backend API to fetch reports data.
+        </div>
+
+        <div>
+            <button onclick="testGetReportsData()">Test get_reports_data</button>
+            <button onclick="testGenerateReport()">Test generate_report (Stock In)</button>
+            <button onclick="clearResult()">Clear</button>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost/caps2e2/Api/backend.php';
+        
+        function displayResult(title, data, isError = false) {
+            const resultDiv = document.getElementById('result');
+            const className = isError ? 'error' : 'success';
+            resultDiv.innerHTML = `
+                <h3 class="${className}">${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+
+        async function testGetReportsData() {
+            try {
+                displayResult('⏳ Loading...', { message: 'Fetching reports data...' });
+                
+                const response = await fetch(API_BASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'get_reports_data'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResult('✅ Success - get_reports_data', {
+                        success: data.success,
+                        reportsCount: data.reports?.length || 0,
+                        reports: data.reports?.slice(0, 5) || [], // Show first 5
+                        analytics: data.analytics,
+                        topCategories: data.topCategories
+                    });
+                } else {
+                    displayResult('❌ API Error', data, true);
+                }
+            } catch (error) {
+                displayResult('❌ Network Error', {
+                    error: error.message,
+                    stack: error.stack
+                }, true);
+            }
+        }
+
+        async function testGenerateReport() {
+            try {
+                displayResult('⏳ Loading...', { message: 'Generating report...' });
+                
+                const today = new Date().toISOString().split('T')[0];
+                
+                const response = await fetch(API_BASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'generate_report',
+                        report_type: 'stock_in',
+                        generated_by: 'Test User',
+                        parameters: {
+                            start_date: today,
+                            end_date: today
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResult('✅ Success - generate_report', data);
+                } else {
+                    displayResult('❌ API Error', data, true);
+                }
+            } catch (error) {
+                displayResult('❌ Network Error', {
+                    error: error.message,
+                    stack: error.stack
+                }, true);
+            }
+        }
+
+        function clearResult() {
+            document.getElementById('result').innerHTML = '';
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            console.log('Page loaded. Ready to test.');
+        };
+    </script>
+</body>
+</html>
+
